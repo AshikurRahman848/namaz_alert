@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:get/get.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:namaz_alert/core/constants/app_colors.dart';
 import 'package:namaz_alert/core/routes/app_routes.dart';
 import 'package:namaz_alert/features/auth/controller/auth_controller.dart';
@@ -15,192 +17,249 @@ class HomeScreen extends StatelessWidget {
     final authCtrl = Get.find<AuthController>();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('NamazAlert 🕌'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.group),
-            onPressed: () => Get.toNamed(AppRoutes.groups),
-            tooltip: 'My Groups',
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: authCtrl.logout,
-            tooltip: 'Logout',
-          ),
-        ],
-      ),
+      backgroundColor: const Color(0xFFF0F4F0),
       body: RefreshIndicator(
-        onRefresh: () => prayerCtrl.fetchTodayPrayers(),
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Greeting
-              Obx(() => Text(
-                    'আস-সালামু আলাইকুম, ${authCtrl.currentUser.value?.name ?? ''} 👋',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+        color: AppColors.primary,
+        onRefresh: prayerCtrl.fetchTodayPrayers,
+        child: CustomScrollView(
+          slivers: [
+            // ── Premium App Bar ─────────────────────────────────────────
+            SliverAppBar(
+              expandedHeight: 0,
+              floating: true,
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              title: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF1B5E20), Color(0xFF4CAF50)],
+                      ),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                  )),
-              const SizedBox(height: 16),
-
-              // Next Prayer Banner
-              Obx(() {
-                final name = prayerCtrl.nextPrayerName.value;
-                final time = prayerCtrl.nextPrayerTime.value;
-                final cd = prayerCtrl.countdown.value;
-
-                return Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppColors.primary, AppColors.primaryLight],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+                    child: const Center(
+                      child: Text('🕌', style: TextStyle(fontSize: 20)),
                     ),
-                    borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Next Prayer',
-                        style: TextStyle(color: Colors.white70, fontSize: 13),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        name.isEmpty ? '...' : name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        time,
-                        style: const TextStyle(
-                            color: Colors.white70, fontSize: 20),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          cd,
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 13),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-
-              const SizedBox(height: 20),
-
-              // Prayer Times List
-              Obx(() {
-                if (prayerCtrl.isLoadingPrayers.value) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final prayers = prayerCtrl.todayPrayers.value;
-                if (prayers == null) {
-                  return Center(
-                    child: Column(
-                      children: [
-                        const Text('Could not load prayer times'),
-                        const SizedBox(height: 8),
-                        ElevatedButton(
-                          onPressed: prayerCtrl.fetchTodayPrayers,
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                return _PrayerTimesCard(prayers: prayers);
-              }),
-
-              const SizedBox(height: 20),
-
-              // Hadith Card
-              Obx(() {
-                final hadith = prayerCtrl.todayHadith.value;
-                if (prayerCtrl.isLoadingHadith.value) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (hadith == null) return const SizedBox.shrink();
-                return Card(
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Text('📖', style: TextStyle(fontSize: 20)),
-                            SizedBox(width: 8),
-                            Text(
-                              "Today's Hadith",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
+                  const SizedBox(width: 10),
+                  Obx(() => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'NamazAlert',
+                            style: GoogleFonts.nunito(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.primary,
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
+                          ),
+                          Text(
+                            'আস-সালামু আলাইকুম, ${authCtrl.currentUser.value?.name.split(' ').first ?? ''} 👋',
+                            style: GoogleFonts.nunito(
+                              fontSize: 11,
+                              color: AppColors.textGrey,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      )),
+                ],
+              ),
+              actions: [
+                IconButton(
+                  onPressed: () => Get.toNamed(AppRoutes.groups),
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.group_outlined,
+                        color: AppColors.primary, size: 20),
+                  ),
+                ),
+                IconButton(
+                  onPressed: authCtrl.logout,
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.logout,
+                        color: Colors.redAccent, size: 20),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+            ),
+
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: Column(
+                  children: [
+                    // ── Next Prayer Hero Card ─────────────────────────
+                    Obx(() {
+                      final name = prayerCtrl.nextPrayerName.value;
+                      final time = prayerCtrl.nextPrayerTime.value;
+                      final cd = prayerCtrl.countdown.value;
+                      final prayers = prayerCtrl.todayPrayers.value;
+
+                      return _NextPrayerCard(
+                        namazName: name,
+                        time: time,
+                        countdown: cd,
+                        hijriDate: prayers?.hijriDate ?? '',
+                      );
+                    }).animate().slideY(begin: 0.3, duration: 600.ms, curve: Curves.easeOut).fadeIn(),
+
+                    const SizedBox(height: 20),
+
+                    // ── Section Title ────────────────────────────────
+                    Row(
+                      children: [
                         Text(
-                          hadith.textBengali.isNotEmpty
-                              ? hadith.textBengali
-                              : hadith.text,
-                          style: const TextStyle(fontSize: 14, height: 1.6),
-                          maxLines: 5,
-                          overflow: TextOverflow.ellipsis,
+                          "Today's Prayers",
+                          style: GoogleFonts.nunito(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textDark,
+                          ),
                         ),
-                        const SizedBox(height: 8),
+                        const Spacer(),
+                        Obx(() {
+                          final p = prayerCtrl.todayPrayers.value;
+                          if (p == null) return const SizedBox.shrink();
+                          return Text(
+                            p.date,
+                            style: GoogleFonts.nunito(
+                              fontSize: 12,
+                              color: AppColors.textGrey,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          );
+                        }),
+                      ],
+                    ).animate(delay: 200.ms).fadeIn(),
+
+                    const SizedBox(height: 12),
+
+                    // ── Prayer Times Grid ────────────────────────────
+                    Obx(() {
+                      if (prayerCtrl.isLoadingPrayers.value) {
+                        return _PrayerTimesShimmer();
+                      }
+                      final prayers = prayerCtrl.todayPrayers.value;
+                      if (prayers == null) {
+                        return _ErrorCard(
+                            onRetry: prayerCtrl.fetchTodayPrayers);
+                      }
+                      return _PrayerTimesGrid(
+                        prayers: prayers,
+                        nextPrayerName: prayerCtrl.nextPrayerName.value,
+                      );
+                    }),
+
+                    const SizedBox(height: 20),
+
+                    // ── Hadith Card ──────────────────────────────────
+                    Row(
+                      children: [
                         Text(
-                          '— ${hadith.bookDisplayName} #${hadith.number}',
-                          style: const TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
+                          "Today's Hadith",
+                          style: GoogleFonts.nunito(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [
+                                AppColors.accent,
+                                Color(0xFFFFF176)
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'Daily',
+                            style: GoogleFonts.nunito(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primary,
+                            ),
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                );
-              }),
-            ],
-          ),
+                    ).animate(delay: 400.ms).fadeIn(),
+
+                    const SizedBox(height: 12),
+
+                    Obx(() {
+                      if (prayerCtrl.isLoadingHadith.value) {
+                        return _HadithShimmer();
+                      }
+                      final hadith = prayerCtrl.todayHadith.value;
+                      if (hadith == null) return const SizedBox.shrink();
+                      return _HadithCard(
+                        text: hadith.textBengali.isNotEmpty
+                            ? hadith.textBengali
+                            : hadith.text,
+                        arabicText: hadith.text,
+                        source: '${hadith.bookDisplayName} #${hadith.number}',
+                      );
+                    }).animate(delay: 500.ms).slideY(begin: 0.2).fadeIn(),
+
+                    const SizedBox(height: 80),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Get.toNamed(AppRoutes.groups),
-        icon: const Icon(Icons.group_add),
-        label: const Text('Groups'),
-      ),
+        backgroundColor: AppColors.primary,
+        elevation: 8,
+        icon: const Icon(Icons.group_add, color: Colors.white),
+        label: Text(
+          'My Groups',
+          style: GoogleFonts.nunito(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ).animate(delay: 600.ms).scale(curve: Curves.elasticOut),
     );
   }
 }
 
-class _PrayerTimesCard extends StatelessWidget {
-  final PrayerTimeModel prayers;
-  const _PrayerTimesCard({required this.prayers});
+// ── Next Prayer Hero Card ─────────────────────────────────────────────────────
 
-  static const _icons = {
+class _NextPrayerCard extends StatelessWidget {
+  final String namazName;
+  final String time;
+  final String countdown;
+  final String hijriDate;
+
+  const _NextPrayerCard({
+    required this.namazName,
+    required this.time,
+    required this.countdown,
+    required this.hijriDate,
+  });
+
+  static const _namazEmojis = {
     'Fajr': '🌙',
     'Dhuhr': '☀️',
     'Asr': '🌤️',
@@ -208,74 +267,683 @@ class _PrayerTimesCard extends StatelessWidget {
     'Isha': '🌑',
   };
 
-  static const _colors = {
-    'Fajr': AppColors.fajrColor,
-    'Dhuhr': AppColors.dhuhrColor,
-    'Asr': AppColors.asrColor,
-    'Maghrib': AppColors.maghribColor,
-    'Isha': AppColors.ishaColor,
-  };
-
   @override
   Widget build(BuildContext context) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Text('🕐', style: TextStyle(fontSize: 18)),
-                const SizedBox(width: 8),
-                const Text(
-                  "Today's Prayer Times",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                ),
-                const Spacer(),
-                Text(
-                  prayers.hijriDate,
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+    final emoji = _namazEmojis[namazName] ?? '🕌';
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0D3B1A), Color(0xFF1B5E20), Color(0xFF2E7D32)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.4),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          // Decorative circle
+          Positioned(
+            right: -30,
+            top: -30,
+            child: Container(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.05),
+              ),
             ),
-            const Divider(height: 20),
-            ...prayers.allPrayers.entries.map((entry) {
-              final color = _colors[entry.key] ?? AppColors.primary;
-              final icon = _icons[entry.key] ?? '🕌';
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
-                    Text(icon, style: const TextStyle(fontSize: 22)),
-                    const SizedBox(width: 12),
-                    Text(
-                      entry.key,
-                      style: TextStyle(
+          ),
+          Positioned(
+            right: 20,
+            bottom: -40,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.04),
+              ),
+            ),
+          ),
+
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Hijri date badge
+                if (hijriDate.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      hijriDate,
+                      style: GoogleFonts.nunito(
+                        color: Colors.white70,
+                        fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        fontSize: 15,
-                        color: color,
                       ),
                     ),
-                    const Spacer(),
-                    Text(
-                      entry.value,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
+                  ),
+
+                const SizedBox(height: 16),
+
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Next Prayer',
+                            style: GoogleFonts.nunito(
+                              color: Colors.white60,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Text(
+                                emoji,
+                                style: const TextStyle(fontSize: 28),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                namazName.isEmpty ? '...' : namazName,
+                                style: GoogleFonts.nunito(
+                                  color: Colors.white,
+                                  fontSize: 34,
+                                  fontWeight: FontWeight.w900,
+                                  height: 1,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            time,
+                            style: GoogleFonts.nunito(
+                              color: AppColors.accent,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Countdown pill
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          const Icon(Icons.timer_outlined,
+                              color: Colors.white, size: 18),
+                          const SizedBox(height: 4),
+                          Text(
+                            countdown,
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.nunito(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              );
-            }),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Prayer Times Grid ─────────────────────────────────────────────────────────
+
+class _PrayerTimesGrid extends StatelessWidget {
+  final PrayerTimeModel prayers;
+  final String nextPrayerName;
+
+  const _PrayerTimesGrid({
+    required this.prayers,
+    required this.nextPrayerName,
+  });
+
+  static const _config = {
+    'Fajr': {
+      'emoji': '🌙',
+      'gradient': [Color(0xFF1565C0), Color(0xFF42A5F5)],
+      'label': 'ফজর',
+    },
+    'Dhuhr': {
+      'emoji': '☀️',
+      'gradient': [Color(0xFFE65100), Color(0xFFFF9800)],
+      'label': 'যোহর',
+    },
+    'Asr': {
+      'emoji': '🌤️',
+      'gradient': [Color(0xFF2E7D32), Color(0xFF66BB6A)],
+      'label': 'আসর',
+    },
+    'Maghrib': {
+      'emoji': '🌅',
+      'gradient': [Color(0xFF4A148C), Color(0xFFAB47BC)],
+      'label': 'মাগরিব',
+    },
+    'Isha': {
+      'emoji': '🌑',
+      'gradient': [Color(0xFF212121), Color(0xFF546E7A)],
+      'label': 'ইশা',
+    },
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = prayers.allPrayers.entries.toList();
+
+    return Column(
+      children: [
+        // First row: Fajr, Dhuhr
+        Row(
+          children: [
+            Expanded(
+                child: _PrayerCard(
+                    name: entries[0].key,
+                    time: entries[0].value,
+                    config: _config[entries[0].key]!,
+                    isNext: nextPrayerName == entries[0].key,
+                    delay: 0)),
+            const SizedBox(width: 12),
+            Expanded(
+                child: _PrayerCard(
+                    name: entries[1].key,
+                    time: entries[1].value,
+                    config: _config[entries[1].key]!,
+                    isNext: nextPrayerName == entries[1].key,
+                    delay: 80)),
           ],
         ),
+        const SizedBox(height: 12),
+        // Second row: Asr, Maghrib
+        Row(
+          children: [
+            Expanded(
+                child: _PrayerCard(
+                    name: entries[2].key,
+                    time: entries[2].value,
+                    config: _config[entries[2].key]!,
+                    isNext: nextPrayerName == entries[2].key,
+                    delay: 160)),
+            const SizedBox(width: 12),
+            Expanded(
+                child: _PrayerCard(
+                    name: entries[3].key,
+                    time: entries[3].value,
+                    config: _config[entries[3].key]!,
+                    isNext: nextPrayerName == entries[3].key,
+                    delay: 240)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        // Full width Isha
+        _PrayerCard(
+          name: entries[4].key,
+          time: entries[4].value,
+          config: _config[entries[4].key]!,
+          isNext: nextPrayerName == entries[4].key,
+          delay: 320,
+          fullWidth: true,
+        ),
+      ],
+    );
+  }
+}
+
+class _PrayerCard extends StatelessWidget {
+  final String name;
+  final String time;
+  final Map<String, Object> config;
+  final bool isNext;
+  final int delay;
+  final bool fullWidth;
+
+  const _PrayerCard({
+    required this.name,
+    required this.time,
+    required this.config,
+    required this.isNext,
+    required this.delay,
+    this.fullWidth = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final gradients = config['gradient'] as List;
+    final emoji = config['emoji'] as String;
+    final label = config['label'] as String;
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: isNext
+            ? LinearGradient(
+                colors: gradients.cast<Color>(),
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+            : null,
+        color: isNext ? null : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: isNext
+            ? null
+            : Border.all(color: Colors.grey.shade100, width: 1.5),
+        boxShadow: isNext
+            ? [
+                BoxShadow(
+                  color: (gradients.first as Color).withValues(alpha: 0.4),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ]
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+      ),
+      padding: EdgeInsets.all(fullWidth ? 18 : 16),
+      child: fullWidth
+          ? Row(
+              children: [
+                Text(emoji, style: const TextStyle(fontSize: 28)),
+                const SizedBox(width: 16),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: GoogleFonts.nunito(
+                        fontSize: 13,
+                        color: isNext
+                            ? Colors.white70
+                            : AppColors.textGrey,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      name,
+                      style: GoogleFonts.nunito(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: isNext ? Colors.white : AppColors.textDark,
+                      ),
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                if (isNext)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Next',
+                      style: GoogleFonts.nunito(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                const SizedBox(width: 8),
+                Text(
+                  time,
+                  style: GoogleFonts.nunito(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: isNext ? Colors.white : AppColors.textDark,
+                  ),
+                ),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(emoji,
+                        style: const TextStyle(fontSize: 24)),
+                    const Spacer(),
+                    if (isNext)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '🔔',
+                          style: const TextStyle(fontSize: 10),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  label,
+                  style: GoogleFonts.nunito(
+                    fontSize: 12,
+                    color: isNext ? Colors.white70 : AppColors.textGrey,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  name,
+                  style: GoogleFonts.nunito(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: isNext ? Colors.white : AppColors.textDark,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  time,
+                  style: GoogleFonts.nunito(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: isNext ? Colors.white : AppColors.textDark,
+                  ),
+                ),
+              ],
+            ),
+    )
+        .animate(delay: Duration(milliseconds: delay))
+        .slideY(begin: 0.3, duration: 400.ms, curve: Curves.easeOut)
+        .fadeIn();
+  }
+}
+
+// ── Hadith Card ───────────────────────────────────────────────────────────────
+
+class _HadithCard extends StatelessWidget {
+  final String text;
+  final String arabicText;
+  final String source;
+
+  const _HadithCard({
+    required this.text,
+    required this.arabicText,
+    required this.source,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Gradient header
+          Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF0D3B1A), Color(0xFF2E7D32)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(24),
+                topRight: Radius.circular(24),
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            child: Row(
+              children: [
+                const Text('📖', style: TextStyle(fontSize: 20)),
+                const SizedBox(width: 10),
+                Text(
+                  "Today's Hadith",
+                  style: GoogleFonts.nunito(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    source,
+                    style: GoogleFonts.nunito(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Arabic text
+          if (arabicText.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+              child: Text(
+                arabicText,
+                textAlign: TextAlign.right,
+                style: GoogleFonts.amiri(
+                  fontSize: 18,
+                  color: AppColors.primary,
+                  height: 1.8,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+
+          // Divider
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Divider(color: Colors.grey.shade100, height: 1),
+          ),
+
+          // Translation text
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Text(
+              text,
+              style: GoogleFonts.nunito(
+                fontSize: 14,
+                color: const Color(0xFF424242),
+                height: 1.7,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 6,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Shimmer Loaders ───────────────────────────────────────────────────────────
+
+class _PrayerTimesShimmer extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(child: _ShimmerBox(height: 130, radius: 20)),
+            const SizedBox(width: 12),
+            Expanded(child: _ShimmerBox(height: 130, radius: 20)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: _ShimmerBox(height: 130, radius: 20)),
+            const SizedBox(width: 12),
+            Expanded(child: _ShimmerBox(height: 130, radius: 20)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _ShimmerBox(height: 80, radius: 20),
+      ],
+    );
+  }
+}
+
+class _HadithShimmer extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return _ShimmerBox(height: 200, radius: 24);
+  }
+}
+
+class _ShimmerBox extends StatefulWidget {
+  final double height;
+  final double radius;
+
+  const _ShimmerBox({required this.height, required this.radius});
+
+  @override
+  State<_ShimmerBox> createState() => _ShimmerBoxState();
+}
+
+class _ShimmerBoxState extends State<_ShimmerBox>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1200))
+      ..repeat();
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, __) => Container(
+        height: widget.height,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(widget.radius),
+          gradient: LinearGradient(
+            colors: [
+              Colors.grey.shade200,
+              Colors.grey.shade100,
+              Colors.grey.shade200,
+            ],
+            stops: [
+              (_anim.value - 0.3).clamp(0.0, 1.0),
+              _anim.value.clamp(0.0, 1.0),
+              (_anim.value + 0.3).clamp(0.0, 1.0),
+            ],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorCard extends StatelessWidget {
+  final VoidCallback onRetry;
+
+  const _ErrorCard({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        children: [
+          const Text('🌐', style: TextStyle(fontSize: 40)),
+          const SizedBox(height: 12),
+          Text(
+            'Could not load prayer times',
+            style: GoogleFonts.nunito(
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
+              color: AppColors.textDark,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry'),
+          ),
+        ],
       ),
     );
   }
