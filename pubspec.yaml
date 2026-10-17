@@ -1,0 +1,100 @@
+name: namaz_alert
+description: NamazAlert — Office namaz time notifications with group support, Hadith sharing, and AlAdhan prayer API.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management, DI & Routing
+  get: ^4.6.6
+
+  # HTTP Client
+  dio: ^5.4.0
+
+  # Local Storage
+  get_storage: ^2.1.1
+
+  # Equality
+  equatable: ^2.0.5
+
+  # Local Notifications
+  flutter_local_notifications: ^18.0.1
+
+  # Timezone (required for scheduled notifications)
+  timezone: ^0.9.4
+
+  # Permission Handler
+  permission_handler: ^11.3.1
+
+  # Location / Geolocator
+  geolocator: ^13.0.2
+
+  # Logger
+  logger: ^2.2.0
+
+  # Cached Network Images
+  cached_network_image: ^3.3.1
+
+  # SVG Support
+  flutter_svg: ^2.0.9
+
+  # Shimmer loading effect
+  shimmer: ^3.0.0
+
+  # URL Launcher
+  url_launcher: ^6.3.3
+
+  # Intl (date/time formatting)
+  intl: ^0.19.0
+
+  # Connectivity
+  connectivity_plus: ^6.1.5
+
+  # UUID (for invite codes)
+  uuid: ^4.4.0
+
+  # Share Plus (share invite link)
+  share_plus: ^10.1.2
+
+  # Lottie animations
+  lottie: ^3.1.2
+
+  # Flutter Staggered Animations
+  flutter_staggered_animations: ^1.1.1
+
+  # ─── Firebase (add later) ───────────────────────────────────
+  # firebase_core: ^3.6.0
+  # firebase_auth: ^5.3.1
+  # cloud_firestore: ^5.4.4
+  # firebase_messaging: ^15.1.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  build_runner: ^2.4.8
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/animations/
+    - assets/fonts/
+
+  fonts:
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins-Regular.ttf
+        - asset: assets/fonts/Poppins-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Poppins-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Poppins-Bold.ttf
+          weight: 700
