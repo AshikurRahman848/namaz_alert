@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:namaz_alert/core/firebase/firestore_instance.dart';
 import 'package:namaz_alert/core/services/fcm_service.dart';
 import 'package:namaz_alert/core/services/notification_service.dart';
 import 'package:namaz_alert/core/services/prayer_service.dart';
@@ -8,7 +9,7 @@ import 'package:namaz_alert/features/auth/controller/auth_controller.dart';
 import 'package:namaz_alert/features/group/model/group_model.dart';
 
 class GroupController extends GetxController {
-  final _firestore = FirebaseFirestore.instance;
+  final _firestore = AppFirestore.instance;
   final _authController = Get.find<AuthController>();
 
   final RxList<GroupModel> groups = <GroupModel>[].obs;

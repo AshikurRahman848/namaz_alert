@@ -1,15 +1,15 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:namaz_alert/core/firebase/firestore_instance.dart';
 import 'package:namaz_alert/core/routes/app_routes.dart';
 import 'package:namaz_alert/core/services/fcm_service.dart';
 import 'package:namaz_alert/features/auth/model/user_model.dart';
 
 class AuthController extends GetxController {
   final _auth = FirebaseAuth.instance;
-  final _firestore = FirebaseFirestore.instance;
+  final _firestore = AppFirestore.instance;
   final _storage = GetStorage();
   final _googleSignIn = GoogleSignIn();
 
