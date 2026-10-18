@@ -32,6 +32,15 @@ class NotificationService {
       onDidReceiveNotificationResponse: _onNotificationTap,
     );
 
+    // Request Android 13+ Notification & Exact Alarm permissions
+    try {
+      final androidImplementation = _plugin
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      await androidImplementation?.requestNotificationsPermission();
+      await androidImplementation?.requestExactAlarmsPermission();
+    } catch (_) {}
+
     // Create notification channels
     await _createChannels();
   }
@@ -41,16 +50,18 @@ class NotificationService {
       AppConstants.namazChannelId,
       AppConstants.namazChannelName,
       description: 'Notifications for upcoming namaz times',
-      importance: Importance.high,
+      importance: Importance.max,
       playSound: true,
+      enableVibration: true,
     );
 
     const hadithChannel = AndroidNotificationChannel(
       AppConstants.hadithChannelId,
       AppConstants.hadithChannelName,
       description: 'Daily hadith and group broadcast notifications',
-      importance: Importance.high,
+      importance: Importance.max,
       playSound: true,
+      enableVibration: true,
     );
 
     await _plugin
@@ -76,11 +87,8 @@ class NotificationService {
     required int offsetMinutes,
     String? hadithText,
   }) async {
+    final now = DateTime.now();
     var notifyAt = prayerTime.subtract(Duration(minutes: offsetMinutes));
-    // If today's alarm time has already passed, schedule for tomorrow at the same time
-    if (notifyAt.isBefore(DateTime.now())) {
-      notifyAt = notifyAt.add(const Duration(days: 1));
-    }
 
     final title = '🕌 $namazName — $offsetMinutes min remaining';
     final body = hadithText != null
@@ -92,10 +100,13 @@ class NotificationService {
         AppConstants.namazChannelId,
         AppConstants.namazChannelName,
         channelDescription: 'Namaz time notification',
-        importance: Importance.high,
-        priority: Priority.high,
+        importance: Importance.max,
+        priority: Priority.max,
         playSound: true,
         enableVibration: true,
+        fullScreenIntent: true,
+        category: AndroidNotificationCategory.alarm,
+        visibility: NotificationVisibility.public,
         styleInformation: BigTextStyleInformation(
           body,
           contentTitle: title,
@@ -110,6 +121,36 @@ class NotificationService {
         presentBadge: true,
       ),
     );
+
+    // If prayer is today in the future, but offset time (e.g. 10m before) already passed:
+    // (e.g. user set prayer for 2:00 PM at 1:55 PM, so 1:50 PM was 5m ago)
+    // Alert immediately so they get alerted in 3 seconds instead of waiting for tomorrow!
+    if (prayerTime.isAfter(now) && notifyAt.isBefore(now)) {
+      final remainingMin = prayerTime.difference(now).inMinutes;
+      final quickTitle = '🕌 $namazName — আর মাত্র $remainingMin মিনিট বাকি!';
+      final quickBody = hadithText != null
+          ? '⏰ $namazName এর জামায়াত শুরু হতে $remainingMin মিনিট বাকি।\n\n📖 হাদিস:\n$hadithText'
+          : '⏰ আর $remainingMin মিনিট পর $namazName এর জামায়াত শুরু হবে।';
+
+      try {
+        await _plugin.zonedSchedule(
+          id + 500,
+          quickTitle,
+          quickBody,
+          tz.TZDateTime.from(now.add(const Duration(seconds: 3)), tz.local),
+          details,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      } catch (_) {
+        await _plugin.show(id + 500, quickTitle, quickBody, details);
+      }
+      notifyAt = notifyAt.add(const Duration(days: 1));
+    } else if (notifyAt.isBefore(now)) {
+      // If today's alarm time has already passed, schedule for tomorrow at the same time
+      notifyAt = notifyAt.add(const Duration(days: 1));
+    }
 
     tz.TZDateTime scheduledDate;
     try {

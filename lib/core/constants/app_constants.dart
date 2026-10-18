@@ -25,8 +25,8 @@ class AppConstants {
   static const namazNames = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 
   // Notification channels
-  static const namazChannelId = 'namaz_channel';
+  static const namazChannelId = 'namaz_channel_v4';
   static const namazChannelName = 'Namaz Notifications';
-  static const hadithChannelId = 'hadith_channel';
+  static const hadithChannelId = 'hadith_channel_v4';
   static const hadithChannelName = 'Hadith Notifications';
 }
