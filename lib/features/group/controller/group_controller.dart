@@ -1,13 +1,14 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get_storage/get_storage.dart';
-import 'package:namaz_alert/core/constants/app_constants.dart';
+import 'package:namaz_alert/core/services/fcm_service.dart';
 import 'package:namaz_alert/core/services/notification_service.dart';
 import 'package:namaz_alert/core/services/prayer_service.dart';
 import 'package:namaz_alert/features/auth/controller/auth_controller.dart';
 import 'package:namaz_alert/features/group/model/group_model.dart';
 
 class GroupController extends GetxController {
-  final _storage = GetStorage();
+  final _firestore = FirebaseFirestore.instance;
   final _authController = Get.find<AuthController>();
 
   final RxList<GroupModel> groups = <GroupModel>[].obs;
@@ -17,24 +18,26 @@ class GroupController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _loadGroupsFromStorage();
+    _listenToGroups();
   }
 
-  void _loadGroupsFromStorage() {
-    final raw = _storage.read<List>(AppConstants.keyGroups);
-    if (raw != null) {
-      groups.value = raw
-          .map((e) => GroupModel.fromJson(Map<String, dynamic>.from(e as Map)))
+  /// Real-time Firestore listener for user's groups
+  void _listenToGroups() {
+    final uid = _authController.currentUser.value?.uid;
+    if (uid == null) return;
+
+    _firestore
+        .collection('groups')
+        .where('memberUids', arrayContains: uid)
+        .snapshots()
+        .listen((snapshot) {
+      groups.value = snapshot.docs
+          .map((doc) => GroupModel.fromJson(doc.data()))
           .toList();
-    }
+    });
   }
 
-  void _saveGroupsToStorage() {
-    _storage.write(
-        AppConstants.keyGroups, groups.map((g) => g.toJson()).toList());
-  }
-
-  /// Create a new group
+  /// Create a new group and save to Firestore
   Future<void> createGroup({
     required String name,
     required String city,
@@ -56,45 +59,66 @@ class GroupController extends GetxController {
         offsetMinutes: offsetMinutes,
       );
 
-      groups.add(group);
-      _saveGroupsToStorage();
+      // Save to Firestore
+      await _firestore.collection('groups').doc(group.id).set({
+        ...group.toJson(),
+        // Store member UIDs separately for Firestore array-contains queries
+        'memberUids': [user.uid],
+      });
 
-      // Schedule notifications for this group
+      // Update user's groupIds in Firestore
+      await _firestore.collection('users').doc(user.uid).update({
+        'groupIds': FieldValue.arrayUnion([group.id]),
+      });
+
+      // Subscribe to FCM topic for group broadcasts
+      await FcmService.subscribeToGroup(group.id);
+
+      // Schedule prayer notifications
       await _scheduleGroupNotifications(group);
+
+      // Re-listen so new group appears
+      _listenToGroups();
 
       Get.back();
       Get.snackbar(
-        '✅ Group Created',
-        '"$name" — Invite code: ${group.inviteCode}',
-        duration: const Duration(seconds: 4),
+        '✅ Group Created!',
+        'Invite code: ${group.inviteCode} — share with your team',
+        duration: const Duration(seconds: 5),
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+        borderRadius: 12,
       );
     } catch (e) {
-      errorMessage.value = 'Failed to create group.';
+      errorMessage.value = 'Failed to create group. Check internet.';
     } finally {
       isLoading.value = false;
     }
   }
 
-  /// Join a group via invite code
+  /// Join a group by invite code (looks up Firestore)
   Future<void> joinGroup(String inviteCode) async {
     isLoading.value = true;
     errorMessage.value = '';
 
     try {
-      // TODO: Fetch group from Firestore by inviteCode
-      // For now, search local storage
-      final existing = groups.firstWhereOrNull(
-        (g) => g.inviteCode.toUpperCase() == inviteCode.toUpperCase(),
-      );
+      // Search Firestore for group with this invite code
+      final query = await _firestore
+          .collection('groups')
+          .where('inviteCode', isEqualTo: inviteCode.toUpperCase())
+          .limit(1)
+          .get();
 
-      if (existing == null) {
+      if (query.docs.isEmpty) {
         errorMessage.value = 'Invalid invite code. Group not found.';
         return;
       }
 
+      final group = GroupModel.fromJson(query.docs.first.data());
       final user = _authController.currentUser.value!;
-      if (existing.isMember(user.uid)) {
-        errorMessage.value = 'You are already a member of this group.';
+
+      if (group.isMember(user.uid)) {
+        errorMessage.value = 'You are already in this group.';
         return;
       }
 
@@ -105,16 +129,32 @@ class GroupController extends GetxController {
         role: 'member',
       );
 
-      final updatedGroup = existing.copyWith(
-        members: [...existing.members, newMember],
-      );
+      // Add member to Firestore group doc
+      await _firestore.collection('groups').doc(group.id).update({
+        'members': FieldValue.arrayUnion([newMember.toJson()]),
+        'memberUids': FieldValue.arrayUnion([user.uid]),
+      });
 
-      final index = groups.indexOf(existing);
-      groups[index] = updatedGroup;
-      _saveGroupsToStorage();
+      // Update user's groupIds
+      await _firestore.collection('users').doc(user.uid).update({
+        'groupIds': FieldValue.arrayUnion([group.id]),
+      });
 
-      await _scheduleGroupNotifications(updatedGroup);
+      // Subscribe to FCM topic
+      await FcmService.subscribeToGroup(group.id);
+
+      // Schedule prayer notifications
+      await _scheduleGroupNotifications(group);
+
       Get.back();
+      Get.snackbar(
+        '🎉 Joined!',
+        'You joined "${group.name}"',
+        duration: const Duration(seconds: 3),
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+        borderRadius: 12,
+      );
     } catch (e) {
       errorMessage.value = 'Failed to join group.';
     } finally {
@@ -122,25 +162,55 @@ class GroupController extends GetxController {
     }
   }
 
-  /// Update notification settings for a group
+  /// Update notification settings for a group (admin only)
   Future<void> updateNotificationSettings(
     String groupId,
     GroupNotificationSettings settings,
   ) async {
-    final index = groups.indexWhere((g) => g.id == groupId);
-    if (index == -1) return;
+    try {
+      await _firestore.collection('groups').doc(groupId).update({
+        'notificationSettings': settings.toJson(),
+      });
 
-    final updated = groups[index].copyWith(notificationSettings: settings);
-    groups[index] = updated;
-    _saveGroupsToStorage();
+      // Reschedule notifications
+      final group = getGroupById(groupId);
+      if (group != null) {
+        final updated = group.copyWith(notificationSettings: settings);
+        await _scheduleGroupNotifications(updated);
+      }
 
-    // Reschedule notifications
-    await _scheduleGroupNotifications(updated);
+      Get.snackbar(
+        '✅ Saved',
+        'Notification settings updated',
+        duration: const Duration(seconds: 2),
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+        borderRadius: 12,
+      );
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to update settings.');
+    }
   }
 
-  /// Schedule local notifications for a group based on its settings
+  /// Broadcast hadith to group members via FCM
+  Future<void> broadcastHadith({
+    required String groupId,
+    required String hadithText,
+    required String narrator,
+  }) async {
+    final group = getGroupById(groupId);
+    if (group == null) return;
+
+    await FcmService.broadcastHadithToGroup(
+      groupId: groupId,
+      hadithText: hadithText,
+      narrator: narrator,
+      groupName: group.name,
+    );
+  }
+
+  /// Schedule local notifications based on group prayer settings
   Future<void> _scheduleGroupNotifications(GroupModel group) async {
-    // Fetch prayer times for this group's city
     final prayerTimes = await PrayerService.fetchByCity(
       city: group.city,
       country: group.country,
@@ -152,18 +222,14 @@ class GroupController extends GetxController {
     final settings = group.notificationSettings;
     final enabledMap = settings.enabledMap;
     final prayers = prayerTimes.allPrayers;
-
     int notifId = group.id.hashCode.abs() % 1000;
 
     for (final entry in prayers.entries) {
-      final namazName = entry.key;
-      final timeStr = entry.value;
-
-      if (enabledMap[namazName] == true) {
-        final prayerDateTime = prayerTimes.toDateTime(timeStr);
+      if (enabledMap[entry.key] == true) {
+        final prayerDateTime = prayerTimes.toDateTime(entry.value);
         await NotificationService.scheduleNamazNotification(
           id: notifId++,
-          namazName: namazName,
+          namazName: entry.key,
           prayerTime: prayerDateTime,
           offsetMinutes: settings.offsetMinutes,
         );
@@ -171,9 +237,8 @@ class GroupController extends GetxController {
     }
   }
 
-  GroupModel? getGroupById(String id) {
-    return groups.firstWhereOrNull((g) => g.id == id);
-  }
+  GroupModel? getGroupById(String id) =>
+      groups.firstWhereOrNull((g) => g.id == id);
 
   List<GroupModel> get myGroups {
     final uid = _authController.currentUser.value?.uid;

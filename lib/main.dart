@@ -1,15 +1,31 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:namaz_alert/core/firebase/firebase_options.dart';
 import 'package:namaz_alert/core/routes/app_pages.dart';
 import 'package:namaz_alert/core/routes/app_routes.dart';
+import 'package:namaz_alert/core/services/fcm_service.dart';
 import 'package:namaz_alert/core/services/notification_service.dart';
 import 'package:namaz_alert/core/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize local storage
   await GetStorage.init();
+
+  // Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // Initialize local notifications
   await NotificationService.initialize();
+
+  // Initialize FCM (push notifications)
+  await FcmService.initialize();
+
   runApp(const NamazAlertApp());
 }
 

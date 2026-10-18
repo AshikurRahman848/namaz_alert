@@ -3,6 +3,7 @@ class UserModel {
   final String name;
   final String email;
   final String? photoUrl;
+  final String? fcmToken;
   final List<String> groupIds;
   final DateTime createdAt;
 
@@ -11,6 +12,7 @@ class UserModel {
     required this.name,
     required this.email,
     this.photoUrl,
+    this.fcmToken,
     this.groupIds = const [],
     required this.createdAt,
   });
@@ -20,6 +22,7 @@ class UserModel {
         'name': name,
         'email': email,
         'photoUrl': photoUrl,
+        'fcmToken': fcmToken,
         'groupIds': groupIds,
         'createdAt': createdAt.toIso8601String(),
       };
@@ -29,6 +32,7 @@ class UserModel {
         name: json['name'] ?? '',
         email: json['email'] ?? '',
         photoUrl: json['photoUrl'],
+        fcmToken: json['fcmToken'],
         groupIds: List<String>.from(json['groupIds'] ?? []),
         createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
       );
@@ -36,6 +40,7 @@ class UserModel {
   UserModel copyWith({
     String? name,
     String? photoUrl,
+    String? fcmToken,
     List<String>? groupIds,
   }) =>
       UserModel(
@@ -43,6 +48,7 @@ class UserModel {
         name: name ?? this.name,
         email: email,
         photoUrl: photoUrl ?? this.photoUrl,
+        fcmToken: fcmToken ?? this.fcmToken,
         groupIds: groupIds ?? this.groupIds,
         createdAt: createdAt,
       );

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "151048879095",
+    "project_id": "namaz-alert-app",
+    "storage_bucket": "namaz-alert-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:151048879095:android:78b48888bb0889ea920cf2",
+        "android_client_info": {
+          "package_name": "com.namazalert.namaz_alert"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD0ZAMjC9fa9wHs_KOCu2CKJGnorWkHZNw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

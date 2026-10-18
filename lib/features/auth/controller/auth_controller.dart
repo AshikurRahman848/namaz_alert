@@ -1,10 +1,14 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
-import 'package:namaz_alert/core/constants/app_constants.dart';
 import 'package:namaz_alert/core/routes/app_routes.dart';
+import 'package:namaz_alert/core/services/fcm_service.dart';
 import 'package:namaz_alert/features/auth/model/user_model.dart';
 
 class AuthController extends GetxController {
+  final _auth = FirebaseAuth.instance;
+  final _firestore = FirebaseFirestore.instance;
   final _storage = GetStorage();
 
   final Rx<UserModel?> currentUser = Rx<UserModel?>(null);
@@ -14,19 +18,43 @@ class AuthController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _loadUserFromStorage();
+    // Listen to Firebase auth state changes
+    _auth.authStateChanges().listen(_onAuthStateChanged);
   }
 
-  void _loadUserFromStorage() {
-    final userData = _storage.read<Map<String, dynamic>>(AppConstants.keyUser);
-    if (userData != null) {
-      currentUser.value = UserModel.fromJson(userData);
+  Future<void> _onAuthStateChanged(User? firebaseUser) async {
+    if (firebaseUser == null) {
+      currentUser.value = null;
+    } else {
+      // Load user profile from Firestore
+      await _loadUserProfile(firebaseUser.uid);
     }
   }
 
-  bool get isLoggedIn => currentUser.value != null;
+  Future<void> _loadUserProfile(String uid) async {
+    try {
+      final doc = await _firestore.collection('users').doc(uid).get();
+      if (doc.exists && doc.data() != null) {
+        currentUser.value = UserModel.fromJson(doc.data()!);
+      }
+    } catch (e) {
+      // If Firestore fails, build from Firebase Auth
+      final firebaseUser = _auth.currentUser;
+      if (firebaseUser != null) {
+        currentUser.value = UserModel(
+          uid: firebaseUser.uid,
+          name: firebaseUser.displayName ?? firebaseUser.email!.split('@').first,
+          email: firebaseUser.email ?? '',
+          photoUrl: firebaseUser.photoURL,
+          createdAt: DateTime.now(),
+        );
+      }
+    }
+  }
 
-  /// Register with email & password (Firebase will be wired here later)
+  bool get isLoggedIn => _auth.currentUser != null;
+
+  /// Register with email & password
   Future<void> register({
     required String name,
     required String email,
@@ -36,18 +64,38 @@ class AuthController extends GetxController {
     errorMessage.value = '';
 
     try {
-      // TODO: Replace with Firebase Auth
-      await Future.delayed(const Duration(seconds: 1)); // simulate network
-
-      final user = UserModel(
-        uid: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: name,
+      // Create Firebase Auth user
+      final credential = await _auth.createUserWithEmailAndPassword(
         email: email,
-        createdAt: DateTime.now(),
+        password: password,
       );
 
-      _saveUser(user);
+      // Update display name
+      await credential.user?.updateDisplayName(name);
+
+      // Get FCM token
+      final fcmToken = FcmService.currentToken;
+
+      // Save user profile to Firestore
+      final user = UserModel(
+        uid: credential.user!.uid,
+        name: name,
+        email: email,
+        photoUrl: null,
+        groupIds: const [],
+        createdAt: DateTime.now(),
+        fcmToken: fcmToken,
+      );
+
+      await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .set(user.toJson());
+
+      currentUser.value = user;
       Get.offAllNamed(AppRoutes.home);
+    } on FirebaseAuthException catch (e) {
+      errorMessage.value = _authErrorMessage(e.code);
     } catch (e) {
       errorMessage.value = 'Registration failed. Please try again.';
     } finally {
@@ -64,33 +112,78 @@ class AuthController extends GetxController {
     errorMessage.value = '';
 
     try {
-      // TODO: Replace with Firebase Auth
-      await Future.delayed(const Duration(seconds: 1));
-
-      final user = UserModel(
-        uid: 'user_${email.hashCode}',
-        name: email.split('@').first,
+      await _auth.signInWithEmailAndPassword(
         email: email,
-        createdAt: DateTime.now(),
+        password: password,
       );
 
-      _saveUser(user);
+      // Update FCM token on login
+      await _updateFcmToken();
+
       Get.offAllNamed(AppRoutes.home);
+    } on FirebaseAuthException catch (e) {
+      errorMessage.value = _authErrorMessage(e.code);
     } catch (e) {
-      errorMessage.value = 'Login failed. Check your credentials.';
+      errorMessage.value = 'Login failed. Please check your credentials.';
     } finally {
       isLoading.value = false;
     }
   }
 
-  void _saveUser(UserModel user) {
-    currentUser.value = user;
-    _storage.write(AppConstants.keyUser, user.toJson());
+  /// Update FCM token in Firestore
+  Future<void> _updateFcmToken() async {
+    final uid = _auth.currentUser?.uid;
+    final token = FcmService.currentToken;
+    if (uid != null && token != null) {
+      await _firestore.collection('users').doc(uid).update({
+        'fcmToken': token,
+      });
+    }
   }
 
-  void logout() {
+  /// Send password reset email
+  Future<void> forgotPassword(String email) async {
+    isLoading.value = true;
+    errorMessage.value = '';
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+      Get.snackbar(
+        '📧 Email Sent',
+        'Password reset link sent to $email',
+        duration: const Duration(seconds: 4),
+      );
+    } on FirebaseAuthException catch (e) {
+      errorMessage.value = _authErrorMessage(e.code);
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> logout() async {
+    await _auth.signOut();
     currentUser.value = null;
-    _storage.remove(AppConstants.keyUser);
+    _storage.erase();
     Get.offAllNamed(AppRoutes.login);
+  }
+
+  String _authErrorMessage(String code) {
+    switch (code) {
+      case 'weak-password':
+        return 'Password is too weak. Use at least 6 characters.';
+      case 'email-already-in-use':
+        return 'This email is already registered.';
+      case 'user-not-found':
+        return 'No account found with this email.';
+      case 'wrong-password':
+        return 'Incorrect password. Please try again.';
+      case 'invalid-email':
+        return 'Invalid email address.';
+      case 'too-many-requests':
+        return 'Too many attempts. Please wait and try again.';
+      case 'network-request-failed':
+        return 'No internet connection.';
+      default:
+        return 'Authentication error. Please try again.';
+    }
   }
 }

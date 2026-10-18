@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:namaz_alert/core/constants/app_colors.dart';
 import 'package:namaz_alert/core/services/hadith_service.dart';
-import 'package:namaz_alert/core/services/notification_service.dart';
 import 'package:namaz_alert/features/group/controller/group_controller.dart';
 import 'package:namaz_alert/features/group/model/group_model.dart';
 import 'package:namaz_alert/features/auth/controller/auth_controller.dart';
@@ -36,16 +35,21 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
         Get.snackbar('Error', 'Could not fetch hadith. Try again.');
         return;
       }
-      // Show it as a notification (in production: send via FCM to group)
-      await NotificationService.showHadithNotification(
-        groupName: _group?.name ?? '',
+
+      // Broadcast via FCM to all group members
+      await _groupCtrl.broadcastHadith(
+        groupId: _groupId,
         hadithText: hadith.shortText,
         narrator: hadith.bookDisplayName,
       );
+
       Get.snackbar(
-        '📖 Hadith Sent!',
-        'Hadith notification sent to your device (FCM will deliver to all members)',
+        '📖 Hadith Broadcast!',
+        'Sent to all group members via notification',
         duration: const Duration(seconds: 3),
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+        borderRadius: 12,
       );
     } finally {
       setState(() => _sendingHadith = false);

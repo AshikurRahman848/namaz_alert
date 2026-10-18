@@ -18,6 +18,7 @@ class AppConstants {
   static const keyLastPrayerFetch = 'last_prayer_fetch';
   static const keyNotificationOffset = 'notification_offset';
   static const keyOnboarded = 'onboarded';
+  static const keyFcmToken = 'fcm_token';
 
   // Namaz names
   static const namazNames = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
