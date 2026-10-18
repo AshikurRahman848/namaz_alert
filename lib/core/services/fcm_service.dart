@@ -7,12 +7,18 @@ import 'package:namaz_alert/core/services/notification_service.dart';
 /// Background FCM message handler (must be top-level function)
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  final text = message.data['hadithText'] ?? message.notification?.body ?? '';
+  final text = message.data['hadithText'] ??
+      message.notification?.body ??
+      message.data['body'] ??
+      '';
+  final group = message.data['groupName'] ?? message.notification?.title ?? '';
+  final narrator = message.data['narrator'] ?? '';
+
   if (text.isNotEmpty) {
     await NotificationService.showHadithNotification(
-      groupName: message.data['groupName'] ?? '',
+      groupName: group,
       hadithText: text,
-      narrator: message.data['narrator'] ?? '',
+      narrator: narrator,
     );
   }
 }
@@ -38,6 +44,11 @@ class FcmService {
       if (token != null) {
         _saveToken(token);
       }
+
+      // Auto-subscribe to all_users topic for global broadcasts from Firebase Console
+      try {
+        await _messaging.subscribeToTopic('all_users');
+      } catch (_) {}
 
       // Listen for token refresh
       _messaging.onTokenRefresh.listen(_saveToken);
