@@ -3,6 +3,18 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:namaz_alert/core/constants/app_constants.dart';
+import 'package:namaz_alert/core/services/adhan_audio_service.dart';
+
+@pragma('vm:entry-point')
+void notificationTapBackground(NotificationResponse notificationResponse) {
+  if (notificationResponse.actionId == 'stop_sound') {
+    AdhanAudioService.stopAdhan();
+    NotificationService.muteNotification(
+      id: notificationResponse.id ?? 8888,
+      payload: notificationResponse.payload,
+    );
+  }
+}
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _plugin =
@@ -30,6 +42,7 @@ class NotificationService {
     await _plugin.initialize(
       initSettings,
       onDidReceiveNotificationResponse: _onNotificationTap,
+      onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
     );
 
     // Request Android 13+ Notification & Exact Alarm permissions
@@ -46,13 +59,27 @@ class NotificationService {
   }
 
   static Future<void> _createChannels() async {
+    final androidImpl = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+
+    // Delete older cached channels so Android OS updates sound and importance
+    await androidImpl?.deleteNotificationChannel('namaz_adhan_channel_v1');
+    await androidImpl?.deleteNotificationChannel('namaz_channel_v4');
+    await androidImpl?.deleteNotificationChannel('namaz_channel_v3');
+    await androidImpl?.deleteNotificationChannel('namaz_channel_v2');
+    await androidImpl?.deleteNotificationChannel('namaz_channel');
+
+    const adhanSound = RawResourceAndroidNotificationSound('adhan');
+
     const namazChannel = AndroidNotificationChannel(
       AppConstants.namazChannelId,
       AppConstants.namazChannelName,
-      description: 'Notifications for upcoming namaz times',
+      description: 'Notifications for upcoming namaz times with Adhan alarm sound',
       importance: Importance.max,
       playSound: true,
+      sound: adhanSound,
       enableVibration: true,
+      audioAttributesUsage: AudioAttributesUsage.alarm,
     );
 
     const hadithChannel = AndroidNotificationChannel(
@@ -64,19 +91,82 @@ class NotificationService {
       enableVibration: true,
     );
 
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(namazChannel);
+    const silentChannel = AndroidNotificationChannel(
+      'namaz_silent_channel',
+      'Namaz Silent Alerts',
+      description: 'Notifications for namaz times after mute',
+      importance: Importance.low,
+      playSound: false,
+      enableVibration: false,
+    );
 
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(hadithChannel);
+    await androidImpl?.createNotificationChannel(namazChannel);
+    await androidImpl?.createNotificationChannel(hadithChannel);
+    await androidImpl?.createNotificationChannel(silentChannel);
   }
 
-  static void _onNotificationTap(NotificationResponse response) {
-    // Handle notification tap — navigate to relevant screen
+  static Future<void> _onNotificationTap(NotificationResponse response) async {
+    if (response.actionId == 'stop_sound') {
+      await AdhanAudioService.stopAdhan();
+      await muteNotification(
+        id: response.id ?? 8888,
+        payload: response.payload,
+      );
+    }
+  }
+
+  /// Mute the audio and update the active notification to stay silently without the button
+  static Future<void> muteNotification({
+    required int id,
+    String? payload,
+    String? title,
+    String? body,
+  }) async {
+    await AdhanAudioService.stopAdhan();
+
+    String displayTitle = title ?? '🕌 নামাজের সময় সতর্কতা';
+    String displayBody = body ?? '🔕 আজান মিউট করা হয়েছে। নামাজের সময় নিকটবর্তী।';
+
+    if (payload != null && payload.contains('|')) {
+      final parts = payload.split('|');
+      if (parts.isNotEmpty && parts[0].isNotEmpty) {
+        displayTitle = parts[0];
+      }
+      if (parts.length > 1 && parts[1].isNotEmpty) {
+        displayBody = '${parts[1]}\n\n(🔕 আজান মিউট করা হয়েছে)';
+      }
+    }
+
+    final silentDetails = NotificationDetails(
+      android: AndroidNotificationDetails(
+        'namaz_silent_channel',
+        'Namaz Silent Alerts',
+        channelDescription: 'Notifications for namaz times after mute',
+        importance: Importance.low,
+        priority: Priority.low,
+        playSound: false,
+        silent: true,
+        enableVibration: false,
+        styleInformation: BigTextStyleInformation(
+          displayBody,
+          contentTitle: displayTitle,
+          summaryText: 'নামাজ সতর্কতা (মিউট)',
+        ),
+        color: const Color(0xFF1B5E20),
+      ),
+      iOS: const DarwinNotificationDetails(
+        presentAlert: true,
+        presentSound: false,
+      ),
+    );
+
+    await _plugin.show(
+      id,
+      displayTitle,
+      displayBody,
+      silentDetails,
+      payload: payload,
+    );
   }
 
   /// Schedule a namaz notification at [scheduledTime] minus [offsetMinutes]
@@ -99,14 +189,24 @@ class NotificationService {
       android: AndroidNotificationDetails(
         AppConstants.namazChannelId,
         AppConstants.namazChannelName,
-        channelDescription: 'Namaz time notification',
+        channelDescription: 'Namaz time notification with Adhan alarm sound',
         importance: Importance.max,
         priority: Priority.max,
         playSound: true,
+        sound: const RawResourceAndroidNotificationSound('adhan'),
         enableVibration: true,
+        audioAttributesUsage: AudioAttributesUsage.alarm,
         fullScreenIntent: true,
         category: AndroidNotificationCategory.alarm,
         visibility: NotificationVisibility.public,
+        actions: const <AndroidNotificationAction>[
+          AndroidNotificationAction(
+            'stop_sound',
+            '🔕 আজান বন্ধ করুন',
+            showsUserInterface: false,
+            cancelNotification: false,
+          ),
+        ],
         styleInformation: BigTextStyleInformation(
           body,
           contentTitle: title,
@@ -171,6 +271,7 @@ class NotificationService {
         body,
         scheduledDate,
         details,
+        payload: '$title|$body',
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         matchDateTimeComponents: DateTimeComponents.time,
         uiLocalNotificationDateInterpretation:
@@ -185,6 +286,7 @@ class NotificationService {
           body,
           scheduledDate,
           details,
+          payload: '$title|$body',
           androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
           matchDateTimeComponents: DateTimeComponents.time,
           uiLocalNotificationDateInterpretation:
@@ -204,11 +306,24 @@ class NotificationService {
       android: AndroidNotificationDetails(
         AppConstants.namazChannelId,
         AppConstants.namazChannelName,
-        channelDescription: 'Test notification',
-        importance: Importance.high,
-        priority: Priority.high,
+        channelDescription: 'Test notification with Adhan sound',
+        importance: Importance.max,
+        priority: Priority.max,
         playSound: true,
+        sound: RawResourceAndroidNotificationSound('adhan'),
         enableVibration: true,
+        audioAttributesUsage: AudioAttributesUsage.alarm,
+        fullScreenIntent: true,
+        category: AndroidNotificationCategory.alarm,
+        visibility: NotificationVisibility.public,
+        actions: [
+          AndroidNotificationAction(
+            'stop_sound',
+            '🔕 আজান বন্ধ করুন',
+            showsUserInterface: false,
+            cancelNotification: false,
+          ),
+        ],
         color: Color(0xFF1B5E20),
       ),
       iOS: DarwinNotificationDetails(
@@ -224,24 +339,43 @@ class NotificationService {
       scheduledDate = tz.TZDateTime.from(notifyAt, tz.UTC);
     }
 
+    const testPayload =
+        '🔔 টেস্ট অ্যালার্ট: আজান ও নামাজ অ্যালার্ট!|টেস্ট নোটিফিকেশন সফলভাবে ট্রিগার হয়েছে।';
+
     try {
       await _plugin.zonedSchedule(
         8888,
-        '🔔 টেস্ট অ্যালার্ট: নামাজ অ্যালার্ট কাজ করছে!',
-        'এইমাত্র আপনার ফোনে টেস্ট নোটিফিকেশন সফলভাবে ট্রিগার হয়েছে।',
+        '🔔 টেস্ট অ্যালার্ট: আজান ও নামাজ অ্যালার্ট!',
+        'টেস্ট নোটিফিকেশন সফলভাবে ট্রিগার হয়েছে। আজানের ধ্বনি শোনা যাচ্ছে।',
         scheduledDate,
         details,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        payload: testPayload,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
       );
     } catch (_) {
-      await _plugin.show(
-        8888,
-        '🔔 টেস্ট অ্যালার্ট: নামাজ অ্যালার্ট কাজ করছে!',
-        'এইমাত্র আপনার ফোনে টেস্ট নোটিফিকেশন সফলভাবে ট্রিগার হয়েছে।',
-        details,
-      );
+      try {
+        await _plugin.zonedSchedule(
+          8888,
+          '🔔 টেস্ট অ্যালার্ট: আজান ও নামাজ অ্যালার্ট!',
+          'টেস্ট নোটিফিকেশন সফলভাবে ট্রিগার হয়েছে।',
+          scheduledDate,
+          details,
+          payload: testPayload,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      } catch (_) {
+        await _plugin.show(
+          8888,
+          '🔔 টেস্ট অ্যালার্ট: আজান ও নামাজ অ্যালার্ট!',
+          'টেস্ট নোটিফিকেশন সফলভাবে ট্রিগার হয়েছে।',
+          details,
+          payload: testPayload,
+        );
+      }
     }
   }
 
