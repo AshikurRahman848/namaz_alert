@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:namaz_alert/core/constants/app_constants.dart';
 import 'package:namaz_alert/core/firebase/firestore_instance.dart';
 import 'package:namaz_alert/core/services/fcm_service.dart';
+import 'package:namaz_alert/core/services/hadith_service.dart';
 import 'package:namaz_alert/core/services/notification_service.dart';
 import 'package:namaz_alert/core/services/prayer_service.dart';
 import 'package:namaz_alert/features/auth/controller/auth_controller.dart';
@@ -361,11 +362,20 @@ class GroupController extends GetxController {
             int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0,
           );
 
+          // Attach a curated/API Hadith to the scheduled notification
+          String? hadithForNotification;
+          try {
+            final hadith = await HadithService.fetchRandom();
+            hadithForNotification =
+                '${hadith.fullText}\n— ${hadith.bookDisplayName}';
+          } catch (_) {}
+
           await NotificationService.scheduleNamazNotification(
             id: notifId++,
             namazName: name,
             prayerTime: prayerDateTime,
             offsetMinutes: settings.offsetMinutes,
+            hadithText: hadithForNotification,
           );
         }
       }

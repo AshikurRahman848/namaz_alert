@@ -76,12 +76,15 @@ class NotificationService {
     required int offsetMinutes,
     String? hadithText,
   }) async {
-    final notifyAt = prayerTime.subtract(Duration(minutes: offsetMinutes));
-    if (notifyAt.isBefore(DateTime.now())) return;
+    var notifyAt = prayerTime.subtract(Duration(minutes: offsetMinutes));
+    // If today's alarm time has already passed, schedule for tomorrow at the same time
+    if (notifyAt.isBefore(DateTime.now())) {
+      notifyAt = notifyAt.add(const Duration(days: 1));
+    }
 
     final title = '🕌 $namazName — $offsetMinutes min remaining';
     final body = hadithText != null
-        ? '⏰ $offsetMinutes min left\n📖 $hadithText'
+        ? '⏰ $offsetMinutes min left until $namazName\n\n📖 হাদিস:\n$hadithText'
         : '⏰ $offsetMinutes minutes until $namazName prayer';
 
     try {
@@ -97,6 +100,8 @@ class NotificationService {
             channelDescription: 'Namaz time notification',
             importance: Importance.high,
             priority: Priority.high,
+            playSound: true,
+            enableVibration: true,
             styleInformation: BigTextStyleInformation(
               body,
               contentTitle: title,
@@ -108,9 +113,11 @@ class NotificationService {
             categoryIdentifier: 'namaz',
             presentAlert: true,
             presentSound: true,
+            presentBadge: true,
           ),
         ),
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.time,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
       );
