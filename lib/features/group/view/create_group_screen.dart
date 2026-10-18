@@ -347,6 +347,39 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                     const SizedBox(height: 28),
 
                     // Create button
+                    // Error message if any
+                    Obx(() {
+                      if (_groupCtrl.errorMessage.value.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.red.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.error_outline,
+                                color: Colors.redAccent, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _groupCtrl.errorMessage.value,
+                                style: GoogleFonts.nunito(
+                                  color: Colors.red.shade800,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+
                     Obx(() => GestureDetector(
                           onTap: _groupCtrl.isLoading.value ? null : _submit,
                           child: Container(

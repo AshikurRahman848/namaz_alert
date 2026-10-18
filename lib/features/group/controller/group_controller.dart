@@ -20,11 +20,13 @@ class GroupController extends GetxController {
   void onInit() {
     super.onInit();
     _listenToGroups();
+    ever(_authController.currentUser, (_) => _listenToGroups());
   }
 
   /// Real-time Firestore listener for user's groups
   void _listenToGroups() {
-    final uid = _authController.currentUser.value?.uid;
+    final uid = _authController.currentUser.value?.uid ??
+        _authController.currentUser.value?.uid;
     if (uid == null) return;
 
     _firestore
@@ -34,6 +36,9 @@ class GroupController extends GetxController {
         .listen((snapshot) {
       groups.value =
           snapshot.docs.map((doc) => GroupModel.fromJson(doc.data())).toList();
+    }, onError: (e) {
+      // ignore: avoid_print
+      print('Listen to groups error: $e');
     });
   }
 
@@ -48,7 +53,24 @@ class GroupController extends GetxController {
     errorMessage.value = '';
 
     try {
-      final user = _authController.currentUser.value!;
+      var user = _authController.currentUser.value;
+      if (user == null) {
+        // Fallback to active firebase auth user
+        user = await _authController.ensureUserLoaded();
+      }
+
+      if (user == null) {
+        errorMessage.value = 'User not logged in. Please restart app.';
+        Get.snackbar(
+          'Authentication Required',
+          'User session not found. Please re-login.',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.redAccent.withValues(alpha: 0.9),
+          colorText: Colors.white,
+        );
+        return;
+      }
+
       final group = GroupModel.create(
         name: name,
         adminUid: user.uid,
@@ -59,30 +81,40 @@ class GroupController extends GetxController {
         offsetMinutes: offsetMinutes,
       );
 
-      // Save to Firestore
+      // 1. Save group to Firestore
       await _firestore.collection('groups').doc(group.id).set({
         ...group.toJson(),
         // Store member UIDs separately for Firestore array-contains queries
         'memberUids': [user.uid],
       });
 
-      // Keep invite-code lookup separate so non-members cannot read group data.
+      // 2. Keep invite-code lookup separate
       await _firestore.collection('groupInvites').doc(group.inviteCode).set({
         'groupId': group.id,
       });
 
-      // Update user's groupIds in Firestore
-      await _firestore.collection('users').doc(user.uid).update({
+      // 3. Update user's groupIds in Firestore (using merge: true so it creates or updates safely)
+      await _firestore.collection('users').doc(user.uid).set({
         'groupIds': FieldValue.arrayUnion([group.id]),
-      });
+      }, SetOptions(merge: true));
 
-      // Subscribe to FCM topic for group broadcasts
-      await FcmService.subscribeToGroup(group.id);
+      // 4. Subscribe to FCM topic for group broadcasts
+      try {
+        await FcmService.subscribeToGroup(group.id);
+      } catch (e) {
+        // ignore: avoid_print
+        print('FCM subscribe error (non-fatal): $e');
+      }
 
-      // Schedule prayer notifications
-      await _scheduleGroupNotifications(group);
+      // 5. Schedule prayer notifications
+      try {
+        await _scheduleGroupNotifications(group);
+      } catch (e) {
+        // ignore: avoid_print
+        print('Schedule notifications error (non-fatal): $e');
+      }
 
-      // Re-listen so new group appears
+      // Re-listen so new group appears immediately
       _listenToGroups();
 
       Get.back();
@@ -93,9 +125,21 @@ class GroupController extends GetxController {
         snackPosition: SnackPosition.BOTTOM,
         margin: const EdgeInsets.all(16),
         borderRadius: 12,
+        backgroundColor: const Color(0xFF1B5E20),
+        colorText: Colors.white,
       );
     } catch (e) {
-      errorMessage.value = 'Failed to create group. Check internet.';
+      // ignore: avoid_print
+      print('Group create error: $e');
+      errorMessage.value = 'Failed to create group: $e';
+      Get.snackbar(
+        'Error Creating Group',
+        e.toString(),
+        duration: const Duration(seconds: 5),
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.redAccent.withValues(alpha: 0.9),
+        colorText: Colors.white,
+      );
     } finally {
       isLoading.value = false;
     }
@@ -114,6 +158,13 @@ class GroupController extends GetxController {
 
       if (!invite.exists || invite.data() == null) {
         errorMessage.value = 'Invalid invite code. Group not found.';
+        Get.snackbar(
+          'Code Not Found',
+          'No active group found for this code.',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.orange.withValues(alpha: 0.9),
+          colorText: Colors.white,
+        );
         return;
       }
 
@@ -123,7 +174,15 @@ class GroupController extends GetxController {
         return;
       }
 
-      final user = _authController.currentUser.value!;
+      var user = _authController.currentUser.value;
+      if (user == null) {
+        user = await _authController.ensureUserLoaded();
+      }
+
+      if (user == null) {
+        errorMessage.value = 'Please log in first.';
+        return;
+      }
 
       final newMember = GroupMember(
         uid: user.uid,
@@ -138,32 +197,49 @@ class GroupController extends GetxController {
         'memberUids': FieldValue.arrayUnion([user.uid]),
       });
 
-      // Update user's groupIds
-      await _firestore.collection('users').doc(user.uid).update({
+      // Update user's groupIds safely
+      await _firestore.collection('users').doc(user.uid).set({
         'groupIds': FieldValue.arrayUnion([groupId]),
-      });
+      }, SetOptions(merge: true));
 
       // Subscribe to FCM topic
-      await FcmService.subscribeToGroup(groupId);
+      try {
+        await FcmService.subscribeToGroup(groupId);
+      } catch (_) {}
 
       // The user is now a member and can read the group details.
       final joinedGroupSnapshot =
           await _firestore.collection('groups').doc(groupId).get();
-      final joinedGroup = GroupModel.fromJson(joinedGroupSnapshot.data()!);
-      await _scheduleGroupNotifications(joinedGroup);
+      if (joinedGroupSnapshot.exists && joinedGroupSnapshot.data() != null) {
+        final joinedGroup = GroupModel.fromJson(joinedGroupSnapshot.data()!);
+        try {
+          await _scheduleGroupNotifications(joinedGroup);
+        } catch (_) {}
+      }
 
-      // Schedule prayer notifications
+      _listenToGroups();
+
       Get.back();
       Get.snackbar(
         '🎉 Joined!',
-        'You joined the group',
-        duration: const Duration(seconds: 3),
+        'You successfully joined the group',
+        duration: const Duration(seconds: 4),
         snackPosition: SnackPosition.BOTTOM,
-        margin: const EdgeInsets.all(16),
-        borderRadius: 12,
+        backgroundColor: const Color(0xFF1B5E20),
+        colorText: Colors.white,
       );
     } catch (e) {
-      errorMessage.value = 'Failed to join group.';
+      // ignore: avoid_print
+      print('Group join error: $e');
+      errorMessage.value = 'Failed to join group: $e';
+      Get.snackbar(
+        'Error Joining Group',
+        e.toString(),
+        duration: const Duration(seconds: 4),
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.redAccent.withValues(alpha: 0.9),
+        colorText: Colors.white,
+      );
     } finally {
       isLoading.value = false;
     }

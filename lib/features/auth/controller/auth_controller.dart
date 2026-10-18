@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
@@ -38,20 +39,49 @@ class AuthController extends GetxController {
       final doc = await _firestore.collection('users').doc(uid).get();
       if (doc.exists && doc.data() != null) {
         currentUser.value = UserModel.fromJson(doc.data()!);
+        return;
       }
     } catch (e) {
-      // If Firestore fails, build from Firebase Auth
-      final firebaseUser = _auth.currentUser;
-      if (firebaseUser != null) {
-        currentUser.value = UserModel(
-          uid: firebaseUser.uid,
-          name: firebaseUser.displayName ?? firebaseUser.email!.split('@').first,
-          email: firebaseUser.email ?? '',
-          photoUrl: firebaseUser.photoURL,
-          createdAt: DateTime.now(),
-        );
+      // ignore: avoid_print
+      print('Load user profile error: $e');
+    }
+
+    // If Firestore document doesn't exist or load failed, build from Firebase Auth
+    final firebaseUser = _auth.currentUser;
+    if (firebaseUser != null) {
+      final user = UserModel(
+        uid: firebaseUser.uid,
+        name: firebaseUser.displayName ??
+            (firebaseUser.email?.isNotEmpty == true
+                ? firebaseUser.email!.split('@').first
+                : 'User'),
+        email: firebaseUser.email ?? '',
+        photoUrl: firebaseUser.photoURL,
+        groupIds: const [],
+        createdAt: DateTime.now(),
+        fcmToken: FcmService.currentToken,
+      );
+      currentUser.value = user;
+      try {
+        await _firestore
+            .collection('users')
+            .doc(firebaseUser.uid)
+            .set(user.toJson(), SetOptions(merge: true));
+      } catch (e) {
+        // ignore: avoid_print
+        print('Error saving fallback user to firestore: $e');
       }
     }
+  }
+
+  /// Ensure user is loaded, resolving from Firebase Auth if necessary
+  Future<UserModel?> ensureUserLoaded() async {
+    if (currentUser.value != null) return currentUser.value;
+    final fbUser = _auth.currentUser;
+    if (fbUser != null) {
+      await _loadUserProfile(fbUser.uid);
+    }
+    return currentUser.value;
   }
 
   bool get isLoggedIn => _auth.currentUser != null;
