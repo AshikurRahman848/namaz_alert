@@ -22,11 +22,11 @@ class HadithModel {
     return names[book] ?? book;
   }
 
-  /// Short version for notification (max 200 chars)
-  String get shortText {
-    final t = textBengali.isNotEmpty ? textBengali : text;
-    return t.length > 200 ? '${t.substring(0, 200)}...' : t;
-  }
+  /// Full version of Hadith (Bengali if available, otherwise original text)
+  String get fullText => textBengali.isNotEmpty ? textBengali : text;
+
+  /// Compatible getter returning full text
+  String get shortText => fullText;
 
   Map<String, dynamic> toJson() => {
         'text': text,

@@ -108,6 +108,7 @@ class GroupModel {
   final String inviteCode;
   final List<GroupMember> members;
   final GroupNotificationSettings notificationSettings;
+  final Map<String, String> customPrayerTimes;
   final DateTime createdAt;
 
   const GroupModel({
@@ -120,6 +121,7 @@ class GroupModel {
     required this.inviteCode,
     this.members = const [],
     this.notificationSettings = const GroupNotificationSettings(),
+    this.customPrayerTimes = const {},
     required this.createdAt,
   });
 
@@ -133,6 +135,7 @@ class GroupModel {
     required String country,
     int calculationMethod = 1,
     int offsetMinutes = 10,
+    Map<String, String> customPrayerTimes = const {},
   }) {
     const uuid = Uuid();
     final id = uuid.v4();
@@ -156,6 +159,7 @@ class GroupModel {
       ],
       notificationSettings:
           GroupNotificationSettings(offsetMinutes: offsetMinutes),
+      customPrayerTimes: customPrayerTimes,
       createdAt: DateTime.now(),
     );
   }
@@ -174,6 +178,7 @@ class GroupModel {
         'inviteCode': inviteCode,
         'members': members.map((m) => m.toJson()).toList(),
         'notificationSettings': notificationSettings.toJson(),
+        'customPrayerTimes': customPrayerTimes,
         'createdAt': createdAt.toIso8601String(),
       };
 
@@ -191,6 +196,9 @@ class GroupModel {
         notificationSettings: GroupNotificationSettings.fromJson(
           json['notificationSettings'] as Map<String, dynamic>? ?? {},
         ),
+        customPrayerTimes: Map<String, String>.from(
+          json['customPrayerTimes'] as Map<dynamic, dynamic>? ?? {},
+        ),
         createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
       );
 
@@ -201,6 +209,7 @@ class GroupModel {
     int? calculationMethod,
     List<GroupMember>? members,
     GroupNotificationSettings? notificationSettings,
+    Map<String, String>? customPrayerTimes,
   }) =>
       GroupModel(
         id: id,
@@ -212,6 +221,7 @@ class GroupModel {
         inviteCode: inviteCode,
         members: members ?? this.members,
         notificationSettings: notificationSettings ?? this.notificationSettings,
+        customPrayerTimes: customPrayerTimes ?? this.customPrayerTimes,
         createdAt: createdAt,
       );
 }

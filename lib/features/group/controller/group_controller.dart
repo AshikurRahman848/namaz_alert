@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:namaz_alert/core/constants/app_constants.dart';
 import 'package:namaz_alert/core/firebase/firestore_instance.dart';
 import 'package:namaz_alert/core/services/fcm_service.dart';
 import 'package:namaz_alert/core/services/notification_service.dart';
@@ -54,10 +55,7 @@ class GroupController extends GetxController {
 
     try {
       var user = _authController.currentUser.value;
-      if (user == null) {
-        // Fallback to active firebase auth user
-        user = await _authController.ensureUserLoaded();
-      }
+      user ??= await _authController.ensureUserLoaded();
 
       if (user == null) {
         errorMessage.value = 'User not logged in. Please restart app.';
@@ -175,9 +173,7 @@ class GroupController extends GetxController {
       }
 
       var user = _authController.currentUser.value;
-      if (user == null) {
-        user = await _authController.ensureUserLoaded();
-      }
+      user ??= await _authController.ensureUserLoaded();
 
       if (user == null) {
         errorMessage.value = 'Please log in first.';
@@ -292,7 +288,50 @@ class GroupController extends GetxController {
     );
   }
 
-  /// Schedule local notifications based on group prayer settings
+  /// Update custom prayer times for a group (admin only)
+  Future<void> updateCustomPrayerTimes(
+    String groupId,
+    Map<String, String> prayerTimes,
+  ) async {
+    try {
+      await _firestore.collection('groups').doc(groupId).set({
+        'customPrayerTimes': prayerTimes,
+      }, SetOptions(merge: true));
+
+      // Reschedule notifications with new custom times safely
+      try {
+        final group = getGroupById(groupId);
+        if (group != null) {
+          final updated = group.copyWith(customPrayerTimes: prayerTimes);
+          await _scheduleGroupNotifications(updated);
+        }
+      } catch (e) {
+        // ignore: avoid_print
+        print('Reschedule notifications error (non-fatal): $e');
+      }
+
+      Get.snackbar(
+        '✅ নামাজের সময় সংরক্ষিত!',
+        'গ্রুপের নামাজের সময়সূচি সফলভাবে আপডেট হয়েছে',
+        duration: const Duration(seconds: 3),
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+        borderRadius: 12,
+        backgroundColor: const Color(0xFF1B5E20),
+        colorText: Colors.white,
+      );
+    } catch (e) {
+      Get.snackbar(
+        'ত্রুটি',
+        'নামাজের সময় আপডেট করতে সমস্যা হয়েছে: $e',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.redAccent.withValues(alpha: 0.9),
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  /// Schedule local notifications based on group prayer settings (supports custom times)
   Future<void> _scheduleGroupNotifications(GroupModel group) async {
     final prayerTimes = await PrayerService.fetchByCity(
       city: group.city,
@@ -300,22 +339,35 @@ class GroupController extends GetxController {
       method: group.calculationMethod,
     );
 
-    if (prayerTimes == null) return;
-
     final settings = group.notificationSettings;
     final enabledMap = settings.enabledMap;
-    final prayers = prayerTimes.allPrayers;
     int notifId = group.id.hashCode.abs() % 1000;
 
-    for (final entry in prayers.entries) {
-      if (enabledMap[entry.key] == true) {
-        final prayerDateTime = prayerTimes.toDateTime(entry.value);
-        await NotificationService.scheduleNamazNotification(
-          id: notifId++,
-          namazName: entry.key,
-          prayerTime: prayerDateTime,
-          offsetMinutes: settings.offsetMinutes,
-        );
+    for (final name in AppConstants.namazNames) {
+      if (enabledMap[name] == true) {
+        // Prefer custom prayer time if set by group admin, else fallback to API
+        String? timeStr = group.customPrayerTimes[name];
+        timeStr ??= prayerTimes?.allPrayers[name];
+
+        if (timeStr != null && timeStr.isNotEmpty) {
+          final cleanTime = timeStr.split(' ').first.trim();
+          final parts = cleanTime.split(':');
+          final now = DateTime.now();
+          final prayerDateTime = DateTime(
+            now.year,
+            now.month,
+            now.day,
+            int.tryParse(parts[0]) ?? 0,
+            int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0,
+          );
+
+          await NotificationService.scheduleNamazNotification(
+            id: notifId++,
+            namazName: name,
+            prayerTime: prayerDateTime,
+            offsetMinutes: settings.offsetMinutes,
+          );
+        }
       }
     }
   }

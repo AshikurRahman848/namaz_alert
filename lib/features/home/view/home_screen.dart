@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -692,7 +693,7 @@ class _PrayerCard extends StatelessWidget {
 
 // ── Hadith Card ───────────────────────────────────────────────────────────────
 
-class _HadithCard extends StatelessWidget {
+class _HadithCard extends StatefulWidget {
   final String text;
   final String arabicText;
   final String source;
@@ -704,7 +705,180 @@ class _HadithCard extends StatelessWidget {
   });
 
   @override
+  State<_HadithCard> createState() => _HadithCardState();
+}
+
+class _HadithCardState extends State<_HadithCard> {
+  bool _isExpanded = false;
+
+  void _copyHadith() {
+    final buffer = StringBuffer();
+    if (widget.arabicText.isNotEmpty) {
+      buffer.writeln(widget.arabicText);
+      buffer.writeln();
+    }
+    buffer.writeln(widget.text);
+    if (widget.source.isNotEmpty) {
+      buffer.writeln('\n— ${widget.source}');
+    }
+    Clipboard.setData(ClipboardData(text: buffer.toString()));
+    Get.snackbar(
+      'অনুলিপি সম্পন্ন',
+      'হাদিসটি ক্লিপবোর্ডে কপি করা হয়েছে',
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: AppColors.primary,
+      colorText: Colors.white,
+      duration: const Duration(seconds: 2),
+      margin: const EdgeInsets.all(16),
+      borderRadius: 12,
+      icon: const Icon(Icons.check_circle_rounded, color: Colors.white),
+    );
+  }
+
+  void _showFullHadithSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        maxChildSize: 0.95,
+        minChildSize: 0.45,
+        builder: (_, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 44,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.menu_book_rounded,
+                        color: AppColors.primary,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "আজকের হাদিস",
+                            style: GoogleFonts.nunito(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          Text(
+                            widget.source,
+                            style: GoogleFonts.nunito(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy_rounded,
+                          color: AppColors.primary, size: 20),
+                      tooltip: 'কপি করুন',
+                      onPressed: _copyHadith,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 22),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 20),
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                  children: [
+                    if (widget.arabicText.isNotEmpty) ...[
+                      Text(
+                        widget.arabicText,
+                        textAlign: TextAlign.right,
+                        style: GoogleFonts.amiri(
+                          fontSize: 22,
+                          color: AppColors.primary,
+                          height: 2.0,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Divider(color: Colors.grey.shade200),
+                      const SizedBox(height: 14),
+                    ],
+                    Text(
+                      widget.text,
+                      style: GoogleFonts.nunito(
+                        fontSize: 16,
+                        color: const Color(0xFF2D3748),
+                        height: 1.8,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.accent.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          widget.source,
+                          style: GoogleFonts.nunito(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 36),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final bool isLongText = widget.text.length > 130;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -718,6 +892,7 @@ class _HadithCard extends StatelessWidget {
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Gradient header
           Container(
@@ -732,11 +907,11 @@ class _HadithCard extends StatelessWidget {
                 topRight: Radius.circular(24),
               ),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
                 const Text('📖', style: TextStyle(fontSize: 20)),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Text(
                   "Today's Hadith",
                   style: GoogleFonts.nunito(
@@ -748,17 +923,34 @@ class _HadithCard extends StatelessWidget {
                 const Spacer(),
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                   decoration: BoxDecoration(
                     color: AppColors.accent,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    source,
+                    widget.source,
                     style: GoogleFonts.nunito(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
                       color: AppColors.primary,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                InkWell(
+                  onTap: _copyHadith,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.all(5),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.copy_rounded,
+                      color: Colors.white,
+                      size: 16,
                     ),
                   ),
                 ),
@@ -767,11 +959,11 @@ class _HadithCard extends StatelessWidget {
           ),
 
           // Arabic text
-          if (arabicText.isNotEmpty)
+          if (widget.arabicText.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
               child: Text(
-                arabicText,
+                widget.arabicText,
                 textAlign: TextAlign.right,
                 style: GoogleFonts.amiri(
                   fontSize: 18,
@@ -790,19 +982,90 @@ class _HadithCard extends StatelessWidget {
 
           // Translation text
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-            child: Text(
-              text,
-              style: GoogleFonts.nunito(
-                fontSize: 14,
-                color: const Color(0xFF424242),
-                height: 1.7,
-                fontWeight: FontWeight.w600,
+            padding: EdgeInsets.fromLTRB(
+              20,
+              14,
+              20,
+              isLongText ? 6 : 20,
+            ),
+            child: AnimatedSize(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOut,
+              alignment: Alignment.topCenter,
+              child: Text(
+                widget.text,
+                style: GoogleFonts.nunito(
+                  fontSize: 14,
+                  color: const Color(0xFF424242),
+                  height: 1.7,
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: _isExpanded ? null : 4,
+                overflow: _isExpanded
+                    ? TextOverflow.visible
+                    : TextOverflow.ellipsis,
               ),
-              maxLines: 6,
-              overflow: TextOverflow.ellipsis,
             ),
           ),
+
+          // Read More / Show Less & Modal Action Buttons
+          if (isLongText)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isExpanded = !_isExpanded;
+                      });
+                    },
+                    icon: Icon(
+                      _isExpanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      size: 20,
+                      color: AppColors.primary,
+                    ),
+                    label: Text(
+                      _isExpanded ? 'সংক্ষেপ করুন' : 'সম্পূর্ণ পড়ুন (Read More)',
+                      style: GoogleFonts.nunito(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    onPressed: _showFullHadithSheet,
+                    icon: const Icon(
+                      Icons.fullscreen_rounded,
+                      size: 18,
+                      color: AppColors.accentDark,
+                    ),
+                    label: Text(
+                      'পূর্ণ স্ক্রিন',
+                      style: GoogleFonts.nunito(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.accentDark,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

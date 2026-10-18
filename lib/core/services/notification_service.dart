@@ -10,6 +10,9 @@ class NotificationService {
 
   static Future<void> initialize() async {
     tz.initializeTimeZones();
+    try {
+      tz.setLocalLocation(tz.getLocation('Asia/Dhaka'));
+    } catch (_) {}
 
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -46,7 +49,8 @@ class NotificationService {
       AppConstants.hadithChannelId,
       AppConstants.hadithChannelName,
       description: 'Daily hadith and group broadcast notifications',
-      importance: Importance.defaultImportance,
+      importance: Importance.high,
+      playSound: true,
     );
 
     await _plugin
@@ -75,35 +79,45 @@ class NotificationService {
     final notifyAt = prayerTime.subtract(Duration(minutes: offsetMinutes));
     if (notifyAt.isBefore(DateTime.now())) return;
 
+    final title = '🕌 $namazName — $offsetMinutes min remaining';
     final body = hadithText != null
         ? '⏰ $offsetMinutes min left\n📖 $hadithText'
         : '⏰ $offsetMinutes minutes until $namazName prayer';
 
-    await _plugin.zonedSchedule(
-      id,
-      '🕌 $namazName — $offsetMinutes min remaining',
-      body,
-      tz.TZDateTime.from(notifyAt, tz.local),
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          AppConstants.namazChannelId,
-          AppConstants.namazChannelName,
-          channelDescription: 'Namaz time notification',
-          importance: Importance.high,
-          priority: Priority.high,
-          styleInformation: BigTextStyleInformation(body),
-          color: const Color(0xFF1B5E20),
+    try {
+      await _plugin.zonedSchedule(
+        id,
+        title,
+        body,
+        tz.TZDateTime.from(notifyAt, tz.local),
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            AppConstants.namazChannelId,
+            AppConstants.namazChannelName,
+            channelDescription: 'Namaz time notification',
+            importance: Importance.high,
+            priority: Priority.high,
+            styleInformation: BigTextStyleInformation(
+              body,
+              contentTitle: title,
+              summaryText: 'নামাজের সময় সতর্কতা',
+            ),
+            color: const Color(0xFF1B5E20),
+          ),
+          iOS: const DarwinNotificationDetails(
+            categoryIdentifier: 'namaz',
+            presentAlert: true,
+            presentSound: true,
+          ),
         ),
-        iOS: const DarwinNotificationDetails(
-          categoryIdentifier: 'namaz',
-          presentAlert: true,
-          presentSound: true,
-        ),
-      ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-    );
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    } catch (e) {
+      // ignore: avoid_print
+      print('zonedSchedule error: $e');
+    }
   }
 
   /// Send an immediate Hadith notification (from group broadcast)
@@ -112,9 +126,13 @@ class NotificationService {
     required String hadithText,
     required String narrator,
   }) async {
-    const id = 9999;
-    const title = '📖 Hadith from your group';
-    final body = '"$hadithText"\n— $narrator';
+    final id = DateTime.now().millisecondsSinceEpoch.remainder(100000);
+    final title = groupName.isNotEmpty
+        ? '📖 হাদিস সতর্কতা ($groupName)'
+        : '📖 হাদিস সতর্কতা';
+    final body = narrator.isNotEmpty
+        ? '$hadithText\n\n— $narrator'
+        : hadithText;
 
     await _plugin.show(
       id,
@@ -124,12 +142,21 @@ class NotificationService {
         android: AndroidNotificationDetails(
           AppConstants.hadithChannelId,
           AppConstants.hadithChannelName,
-          importance: Importance.defaultImportance,
-          priority: Priority.defaultPriority,
-          styleInformation: BigTextStyleInformation(body),
+          channelDescription: 'Daily hadith and group broadcast notifications',
+          importance: Importance.high,
+          priority: Priority.high,
+          styleInformation: BigTextStyleInformation(
+            body,
+            contentTitle: title,
+            summaryText: groupName.isNotEmpty ? groupName : 'NamazAlert',
+          ),
+          icon: '@mipmap/ic_launcher',
+          color: const Color(0xFF1B5E20),
         ),
         iOS: const DarwinNotificationDetails(
           presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
         ),
       ),
     );

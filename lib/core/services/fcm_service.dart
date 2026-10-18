@@ -7,11 +7,11 @@ import 'package:namaz_alert/core/services/notification_service.dart';
 /// Background FCM message handler (must be top-level function)
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  final body = message.notification?.body ?? '';
-  if (body.isNotEmpty) {
+  final text = message.data['hadithText'] ?? message.notification?.body ?? '';
+  if (text.isNotEmpty) {
     await NotificationService.showHadithNotification(
       groupName: message.data['groupName'] ?? '',
-      hadithText: body,
+      hadithText: text,
       narrator: message.data['narrator'] ?? '',
     );
   }
@@ -62,19 +62,13 @@ class FcmService {
     final title = message.notification?.title ?? 'NamazAlert';
     final body = message.notification?.body ?? '';
     final data = message.data;
+    final text = data['hadithText'] ?? body;
 
-    // Show as local notification
-    if (data['type'] == 'hadith') {
+    if (text.isNotEmpty) {
       await NotificationService.showHadithNotification(
-        groupName: data['groupName'] ?? '',
-        hadithText: body,
+        groupName: data['groupName'] ?? (data['type'] == 'hadith' ? '' : title),
+        hadithText: text,
         narrator: data['narrator'] ?? '',
-      );
-    } else {
-      await NotificationService.showHadithNotification(
-        groupName: title,
-        hadithText: body,
-        narrator: '',
       );
     }
   }

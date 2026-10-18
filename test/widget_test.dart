@@ -49,5 +49,9 @@ void main() {
     expect(group.isMember('uid_123'), true);
     expect(group.inviteCode.startsWith('NAM-'), true);
     expect(group.notificationSettings.offsetMinutes, 10);
+    expect(group.customPrayerTimes.isEmpty, true);
+
+    final updated = group.copyWith(customPrayerTimes: {'Dhuhr': '13:30'});
+    expect(updated.customPrayerTimes['Dhuhr'], '13:30');
   });
 }

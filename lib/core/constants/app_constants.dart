@@ -1,7 +1,8 @@
 class AppConstants {
   // Prayer API
   static const prayerApiBase = 'https://api.aladhan.com/v1';
-  static const hadithApiBase = 'https://api.hadith.gading.dev';
+  static const hadithApiBase =
+      'https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1';
 
   // Default location (Dhaka, Bangladesh)
   static const defaultCity = 'Dhaka';
