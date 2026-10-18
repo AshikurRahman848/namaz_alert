@@ -12,7 +12,20 @@
           "package_name": "com.namazalert.namaz_alert"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "151048879095-gacgimm6gs44iru550s8q6pqilqlqs5l.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.namazalert.namaz_alert",
+            "certificate_hash": "4018ecb03f5ea0548bfbcd46074b8d43dd182158"
+          }
+        },
+        {
+          "client_id": "151048879095-qtaihqlkhfkse12un0k2hadd3mq8qb6n.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyD0ZAMjC9fa9wHs_KOCu2CKJGnorWkHZNw"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "151048879095-qtaihqlkhfkse12un0k2hadd3mq8qb6n.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "151048879095-aju1ltrlt2e3lbsc7kcmh83fkt6cmagg.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.namazalert.namazAlert"
+              }
+            }
+          ]
         }
       }
     }

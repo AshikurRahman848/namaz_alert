@@ -1,8 +1,1 @@
-{
-  "firestore": [
-    {
-      "database": "default",
-      "rules": "firestore.rules"
-    }
-  ]
-}
+{"firestore":[{"database":"default","rules":"firestore.rules"}],"flutter":{"platforms":{"android":{"default":{"projectId":"namaz-alert-app","appId":"1:151048879095:android:78b48888bb0889ea920cf2","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"namaz-alert-app","appId":"1:151048879095:ios:bd5fe834af5c204e920cf2","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"dart":{"lib/core/firebase/firebase_options.dart":{"projectId":"namaz-alert-app","configurations":{"android":"1:151048879095:android:78b48888bb0889ea920cf2","ios":"1:151048879095:ios:bd5fe834af5c204e920cf2"}}}}}}

@@ -56,7 +56,6 @@ class DefaultFirebaseOptions {
     projectId: 'namaz-alert-app',
     storageBucket: 'namaz-alert-app.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyA5XZK8RmRE8iuMlh8LjprwSdvympHam0w',
     appId: '1:151048879095:ios:bd5fe834af5c204e920cf2',

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:namaz_alert/core/routes/app_routes.dart';
 import 'package:namaz_alert/core/services/fcm_service.dart';
 import 'package:namaz_alert/features/auth/model/user_model.dart';
@@ -10,6 +11,7 @@ class AuthController extends GetxController {
   final _auth = FirebaseAuth.instance;
   final _firestore = FirebaseFirestore.instance;
   final _storage = GetStorage();
+  final _googleSignIn = GoogleSignIn();
 
   final Rx<UserModel?> currentUser = Rx<UserModel?>(null);
   final RxBool isLoading = false.obs;
@@ -53,6 +55,70 @@ class AuthController extends GetxController {
   }
 
   bool get isLoggedIn => _auth.currentUser != null;
+
+  /// Sign In with Google
+  Future<void> signInWithGoogle() async {
+    isLoading.value = true;
+    errorMessage.value = '';
+
+    try {
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        // User cancelled the dialog
+        isLoading.value = false;
+        return;
+      }
+
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+      final OAuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final UserCredential userCredential =
+          await _auth.signInWithCredential(credential);
+      final firebaseUser = userCredential.user;
+
+      if (firebaseUser != null) {
+        final fcmToken = FcmService.currentToken;
+
+        // Check if user already exists in Firestore
+        final userDoc =
+            await _firestore.collection('users').doc(firebaseUser.uid).get();
+
+        if (!userDoc.exists) {
+          final user = UserModel(
+            uid: firebaseUser.uid,
+            name: firebaseUser.displayName ??
+                googleUser.displayName ??
+                'User',
+            email: firebaseUser.email ?? googleUser.email,
+            photoUrl: firebaseUser.photoURL ?? googleUser.photoUrl,
+            groupIds: const [],
+            createdAt: DateTime.now(),
+            fcmToken: fcmToken,
+          );
+          await _firestore
+              .collection('users')
+              .doc(user.uid)
+              .set(user.toJson());
+          currentUser.value = user;
+        } else {
+          await _updateFcmToken();
+          await _loadUserProfile(firebaseUser.uid);
+        }
+
+        Get.offAllNamed(AppRoutes.home);
+      }
+    } on FirebaseAuthException catch (e) {
+      errorMessage.value = _authErrorMessage(e.code);
+    } catch (e) {
+      errorMessage.value = 'Google sign-in failed. Please try again.';
+    } finally {
+      isLoading.value = false;
+    }
+  }
 
   /// Register with email & password
   Future<void> register({
@@ -160,6 +226,9 @@ class AuthController extends GetxController {
   }
 
   Future<void> logout() async {
+    try {
+      await _googleSignIn.signOut();
+    } catch (_) {}
     await _auth.signOut();
     currentUser.value = null;
     _storage.erase();

@@ -165,6 +165,37 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         const SizedBox(height: 20),
 
+                        // OR Divider
+                        Row(
+                          children: [
+                            Expanded(child: Divider(color: Colors.grey.shade300)),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Text(
+                                'OR',
+                                style: GoogleFonts.nunito(
+                                  color: AppColors.textGrey,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                            Expanded(child: Divider(color: Colors.grey.shade300)),
+                          ],
+                        ).animate(delay: 450.ms).fadeIn(),
+
+                        const SizedBox(height: 20),
+
+                        // Google Sign-In button
+                        Obx(() => _GoogleSignInButton(
+                              onPressed: _auth.isLoading.value
+                                  ? null
+                                  : _auth.signInWithGoogle,
+                              isLoading: _auth.isLoading.value,
+                            )).animate(delay: 500.ms).slideY(begin: 0.2).fadeIn(),
+
+                        const SizedBox(height: 24),
+
                         // Register link
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -185,7 +216,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                           ],
-                        ).animate(delay: 500.ms).fadeIn(),
+                        ).animate(delay: 550.ms).fadeIn(),
                       ],
                     ),
                   ),
@@ -346,7 +377,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             .animate()
                             .slideY(begin: 0.2, delay: 500.ms)
                             .fadeIn(),
+
                         const SizedBox(height: 20),
+
+                        // OR Divider
+                        Row(
+                          children: [
+                            Expanded(child: Divider(color: Colors.grey.shade300)),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Text(
+                                'OR',
+                                style: GoogleFonts.nunito(
+                                  color: AppColors.textGrey,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                            Expanded(child: Divider(color: Colors.grey.shade300)),
+                          ],
+                        ).animate(delay: 550.ms).fadeIn(),
+
+                        const SizedBox(height: 20),
+
+                        // Google Sign-In button
+                        Obx(() => _GoogleSignInButton(
+                              onPressed: _auth.isLoading.value
+                                  ? null
+                                  : _auth.signInWithGoogle,
+                              isLoading: _auth.isLoading.value,
+                            )).animate(delay: 600.ms).slideY(begin: 0.2).fadeIn(),
+
+                        const SizedBox(height: 24),
+
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -362,7 +426,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   )),
                             ),
                           ],
-                        ).animate(delay: 600.ms).fadeIn(),
+                        ).animate(delay: 650.ms).fadeIn(),
                       ],
                     ),
                   ),
@@ -565,3 +629,79 @@ class _GradientButton extends StatelessWidget {
     );
   }
 }
+
+class _GoogleSignInButton extends StatelessWidget {
+  final VoidCallback? onPressed;
+  final bool isLoading;
+
+  const _GoogleSignInButton({
+    required this.onPressed,
+    this.isLoading = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        height: 56,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Center(
+          child: isLoading
+              ? const SizedBox(
+                  height: 22,
+                  width: 22,
+                  child: CircularProgressIndicator(
+                    color: AppColors.primary,
+                    strokeWidth: 2.5,
+                  ),
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 26,
+                      height: 26,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                      ),
+                      child: Center(
+                        child: Text(
+                          'G',
+                          style: GoogleFonts.poppins(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            color: const Color(0xFF4285F4),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Continue with Google',
+                      style: GoogleFonts.nunito(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+}
+
