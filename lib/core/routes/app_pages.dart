@@ -16,7 +16,7 @@ class AppPages {
       name: AppRoutes.splash,
       page: () => const SplashScreen(),
       binding: BindingsBuilder(() {
-        Get.put(AuthController());
+        Get.put(AuthController(), permanent: true);
       }),
     ),
     GetPage(
