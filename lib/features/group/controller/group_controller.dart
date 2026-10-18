@@ -32,9 +32,8 @@ class GroupController extends GetxController {
         .where('memberUids', arrayContains: uid)
         .snapshots()
         .listen((snapshot) {
-      groups.value = snapshot.docs
-          .map((doc) => GroupModel.fromJson(doc.data()))
-          .toList();
+      groups.value =
+          snapshot.docs.map((doc) => GroupModel.fromJson(doc.data())).toList();
     });
   }
 
@@ -65,6 +64,11 @@ class GroupController extends GetxController {
         ...group.toJson(),
         // Store member UIDs separately for Firestore array-contains queries
         'memberUids': [user.uid],
+      });
+
+      // Keep invite-code lookup separate so non-members cannot read group data.
+      await _firestore.collection('groupInvites').doc(group.inviteCode).set({
+        'groupId': group.id,
       });
 
       // Update user's groupIds in Firestore
@@ -103,25 +107,23 @@ class GroupController extends GetxController {
     errorMessage.value = '';
 
     try {
-      // Search Firestore for group with this invite code
-      final query = await _firestore
-          .collection('groups')
-          .where('inviteCode', isEqualTo: inviteCode.toUpperCase())
-          .limit(1)
+      final invite = await _firestore
+          .collection('groupInvites')
+          .doc(inviteCode.toUpperCase())
           .get();
 
-      if (query.docs.isEmpty) {
+      if (!invite.exists || invite.data() == null) {
         errorMessage.value = 'Invalid invite code. Group not found.';
         return;
       }
 
-      final group = GroupModel.fromJson(query.docs.first.data());
-      final user = _authController.currentUser.value!;
-
-      if (group.isMember(user.uid)) {
-        errorMessage.value = 'You are already in this group.';
+      final groupId = invite.data()!['groupId'] as String?;
+      if (groupId == null || groupId.isEmpty) {
+        errorMessage.value = 'Invalid invite code. Group not found.';
         return;
       }
+
+      final user = _authController.currentUser.value!;
 
       final newMember = GroupMember(
         uid: user.uid,
@@ -131,26 +133,30 @@ class GroupController extends GetxController {
       );
 
       // Add member to Firestore group doc
-      await _firestore.collection('groups').doc(group.id).update({
+      await _firestore.collection('groups').doc(groupId).update({
         'members': FieldValue.arrayUnion([newMember.toJson()]),
         'memberUids': FieldValue.arrayUnion([user.uid]),
       });
 
       // Update user's groupIds
       await _firestore.collection('users').doc(user.uid).update({
-        'groupIds': FieldValue.arrayUnion([group.id]),
+        'groupIds': FieldValue.arrayUnion([groupId]),
       });
 
       // Subscribe to FCM topic
-      await FcmService.subscribeToGroup(group.id);
+      await FcmService.subscribeToGroup(groupId);
+
+      // The user is now a member and can read the group details.
+      final joinedGroupSnapshot =
+          await _firestore.collection('groups').doc(groupId).get();
+      final joinedGroup = GroupModel.fromJson(joinedGroupSnapshot.data()!);
+      await _scheduleGroupNotifications(joinedGroup);
 
       // Schedule prayer notifications
-      await _scheduleGroupNotifications(group);
-
       Get.back();
       Get.snackbar(
         '🎉 Joined!',
-        'You joined "${group.name}"',
+        'You joined the group',
         duration: const Duration(seconds: 3),
         snackPosition: SnackPosition.BOTTOM,
         margin: const EdgeInsets.all(16),
