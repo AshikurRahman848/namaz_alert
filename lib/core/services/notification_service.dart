@@ -87,43 +87,120 @@ class NotificationService {
         ? '⏰ $offsetMinutes min left until $namazName\n\n📖 হাদিস:\n$hadithText'
         : '⏰ $offsetMinutes minutes until $namazName prayer';
 
+    final details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        AppConstants.namazChannelId,
+        AppConstants.namazChannelName,
+        channelDescription: 'Namaz time notification',
+        importance: Importance.high,
+        priority: Priority.high,
+        playSound: true,
+        enableVibration: true,
+        styleInformation: BigTextStyleInformation(
+          body,
+          contentTitle: title,
+          summaryText: 'নামাজের সময় সতর্কতা',
+        ),
+        color: const Color(0xFF1B5E20),
+      ),
+      iOS: const DarwinNotificationDetails(
+        categoryIdentifier: 'namaz',
+        presentAlert: true,
+        presentSound: true,
+        presentBadge: true,
+      ),
+    );
+
+    tz.TZDateTime scheduledDate;
+    try {
+      scheduledDate = tz.TZDateTime.from(notifyAt, tz.local);
+    } catch (_) {
+      try {
+        scheduledDate =
+            tz.TZDateTime.from(notifyAt, tz.getLocation('Asia/Dhaka'));
+      } catch (_) {
+        scheduledDate = tz.TZDateTime.from(notifyAt, tz.UTC);
+      }
+    }
+
     try {
       await _plugin.zonedSchedule(
         id,
         title,
         body,
-        tz.TZDateTime.from(notifyAt, tz.local),
-        NotificationDetails(
-          android: AndroidNotificationDetails(
-            AppConstants.namazChannelId,
-            AppConstants.namazChannelName,
-            channelDescription: 'Namaz time notification',
-            importance: Importance.high,
-            priority: Priority.high,
-            playSound: true,
-            enableVibration: true,
-            styleInformation: BigTextStyleInformation(
-              body,
-              contentTitle: title,
-              summaryText: 'নামাজের সময় সতর্কতা',
-            ),
-            color: const Color(0xFF1B5E20),
-          ),
-          iOS: const DarwinNotificationDetails(
-            categoryIdentifier: 'namaz',
-            presentAlert: true,
-            presentSound: true,
-            presentBadge: true,
-          ),
-        ),
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        scheduledDate,
+        details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         matchDateTimeComponents: DateTimeComponents.time,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
       );
-    } catch (e) {
-      // ignore: avoid_print
-      print('zonedSchedule error: $e');
+    } catch (_) {
+      // Fallback to inexact if exact alarm permission is not granted on this device
+      try {
+        await _plugin.zonedSchedule(
+          id,
+          title,
+          body,
+          scheduledDate,
+          details,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          matchDateTimeComponents: DateTimeComponents.time,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      } catch (e) {
+        // ignore: avoid_print
+        print('zonedSchedule error: $e');
+      }
+    }
+  }
+
+  /// Schedule a quick test notification in [seconds] seconds
+  static Future<void> scheduleTestNotification({int seconds = 5}) async {
+    final notifyAt = DateTime.now().add(Duration(seconds: seconds));
+    const details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        AppConstants.namazChannelId,
+        AppConstants.namazChannelName,
+        channelDescription: 'Test notification',
+        importance: Importance.high,
+        priority: Priority.high,
+        playSound: true,
+        enableVibration: true,
+        color: Color(0xFF1B5E20),
+      ),
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentSound: true,
+      ),
+    );
+
+    tz.TZDateTime scheduledDate;
+    try {
+      scheduledDate = tz.TZDateTime.from(notifyAt, tz.local);
+    } catch (_) {
+      scheduledDate = tz.TZDateTime.from(notifyAt, tz.UTC);
+    }
+
+    try {
+      await _plugin.zonedSchedule(
+        8888,
+        '🔔 টেস্ট অ্যালার্ট: নামাজ অ্যালার্ট কাজ করছে!',
+        'এইমাত্র আপনার ফোনে টেস্ট নোটিফিকেশন সফলভাবে ট্রিগার হয়েছে।',
+        scheduledDate,
+        details,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    } catch (_) {
+      await _plugin.show(
+        8888,
+        '🔔 টেস্ট অ্যালার্ট: নামাজ অ্যালার্ট কাজ করছে!',
+        'এইমাত্র আপনার ফোনে টেস্ট নোটিফিকেশন সফলভাবে ট্রিগার হয়েছে।',
+        details,
+      );
     }
   }
 

@@ -9,6 +9,7 @@ import 'package:namaz_alert/core/services/notification_service.dart';
 import 'package:namaz_alert/core/services/prayer_service.dart';
 import 'package:namaz_alert/features/auth/controller/auth_controller.dart';
 import 'package:namaz_alert/features/group/model/group_model.dart';
+import 'package:namaz_alert/features/prayer/model/prayer_time_model.dart';
 
 class GroupController extends GetxController {
   final _firestore = AppFirestore.instance;
@@ -36,8 +37,11 @@ class GroupController extends GetxController {
         .where('memberUids', arrayContains: uid)
         .snapshots()
         .listen((snapshot) {
-      groups.value =
-          snapshot.docs.map((doc) => GroupModel.fromJson(doc.data())).toList();
+      groups.assignAll(
+          snapshot.docs.map((doc) => GroupModel.fromJson(doc.data())).toList());
+      for (final g in groups) {
+        _scheduleGroupNotifications(g);
+      }
     }, onError: (e) {
       // ignore: avoid_print
       print('Listen to groups error: $e');
@@ -334,11 +338,14 @@ class GroupController extends GetxController {
 
   /// Schedule local notifications based on group prayer settings (supports custom times)
   Future<void> _scheduleGroupNotifications(GroupModel group) async {
-    final prayerTimes = await PrayerService.fetchByCity(
-      city: group.city,
-      country: group.country,
-      method: group.calculationMethod,
-    );
+    PrayerTimeModel? prayerTimes;
+    try {
+      prayerTimes = await PrayerService.fetchByCity(
+        city: group.city,
+        country: group.country,
+        method: group.calculationMethod,
+      );
+    } catch (_) {}
 
     final settings = group.notificationSettings;
     final enabledMap = settings.enabledMap;
@@ -354,12 +361,25 @@ class GroupController extends GetxController {
           final cleanTime = timeStr.split(' ').first.trim();
           final parts = cleanTime.split(':');
           final now = DateTime.now();
+
+          int rawHour = int.tryParse(parts[0]) ?? 0;
+          final int rawMinute =
+              int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
+
+          // Smart AM/PM correction:
+          // Dhuhr, Asr, Maghrib, Isha are PM prayers. If user picked 1:00 for Dhuhr, it's 13:00 (1:00 PM)!
+          if (name == 'Dhuhr' && rawHour < 11) rawHour += 12;
+          if (name == 'Asr' && rawHour < 12) rawHour += 12;
+          if (name == 'Maghrib' && rawHour < 12) rawHour += 12;
+          if (name == 'Isha' && rawHour < 12) rawHour += 12;
+          if (name == 'Fajr' && rawHour >= 12) rawHour -= 12;
+
           final prayerDateTime = DateTime(
             now.year,
             now.month,
             now.day,
-            int.tryParse(parts[0]) ?? 0,
-            int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0,
+            rawHour.clamp(0, 23),
+            rawMinute.clamp(0, 59),
           );
 
           // Attach a curated/API Hadith to the scheduled notification

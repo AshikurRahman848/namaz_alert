@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:namaz_alert/core/constants/app_colors.dart';
 import 'package:namaz_alert/core/constants/app_constants.dart';
 import 'package:namaz_alert/core/services/hadith_service.dart';
+import 'package:namaz_alert/core/services/notification_service.dart';
 import 'package:namaz_alert/core/services/prayer_service.dart';
 import 'package:namaz_alert/features/auth/controller/auth_controller.dart';
 import 'package:namaz_alert/features/group/controller/group_controller.dart';
@@ -158,8 +159,19 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
         final group = _group;
         if (group == null) return;
 
+        int h = picked.hour;
+        final m = picked.minute;
+
+        // Auto-correct PM for afternoon/evening prayers
+        if (prayerName == 'Dhuhr' && h < 11) h += 12;
+        if (prayerName == 'Asr' && h < 12) h += 12;
+        if (prayerName == 'Maghrib' && h < 12) h += 12;
+        if (prayerName == 'Isha' && h < 12) h += 12;
+        if (prayerName == 'Fajr' && h >= 12) h -= 12;
+
+        final corrected = TimeOfDay(hour: h, minute: m);
         final updated = Map<String, String>.from(group.customPrayerTimes);
-        final timeStr = _timeOfDayToString(picked);
+        final timeStr = _timeOfDayToString(corrected);
         updated[prayerName] = timeStr;
 
         await _groupCtrl.updateCustomPrayerTimes(group.id, updated);
@@ -569,6 +581,44 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                         ),
                       );
                     }),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          side: BorderSide(
+                              color: AppColors.primary.withValues(alpha: 0.4)),
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () async {
+                          await NotificationService.scheduleTestNotification(
+                              seconds: 5);
+                          Get.snackbar(
+                            '🔔 টেস্ট নোটিফিকেশন শিডিউল হয়েছে',
+                            'ঠিক ৫ সেকেন্ড পর আপনার ফোনে নোটিফিকেশন ও সাউন্ড বাজবে! (অ্যাপ মিনিমাইজ বা লক করতে পারেন)',
+                            snackPosition: SnackPosition.BOTTOM,
+                            backgroundColor: const Color(0xFF1B5E20),
+                            colorText: Colors.white,
+                            duration: const Duration(seconds: 4),
+                            margin: const EdgeInsets.all(16),
+                            borderRadius: 12,
+                          );
+                        },
+                        icon: const Icon(Icons.notifications_active_outlined,
+                            size: 18),
+                        label: Text(
+                          'নোটিফিকেশন অ্যালার্ট টেস্ট করুন (৫ সেকেন্ড পর)',
+                          style: GoogleFonts.nunito(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
