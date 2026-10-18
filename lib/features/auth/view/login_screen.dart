@@ -40,7 +40,7 @@ class _LoginScreenState extends State<LoginScreen> {
       body: Column(
         children: [
           // ── Curved gradient header ──────────────────────────
-          _GradientHeader(),
+          const _GradientHeader(),
 
           // ── Form ───────────────────────────────────────────
           Expanded(
@@ -273,7 +273,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       backgroundColor: const Color(0xFFF0F4F0),
       body: Column(
         children: [
-          _GradientHeader(
+          const _GradientHeader(
             title: 'Join NamazAlert',
             subtitle: 'Namaz reminders for your office team',
             emoji: '👤',

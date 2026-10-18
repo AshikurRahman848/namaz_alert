@@ -72,7 +72,7 @@ class _SplashScreenState extends State<SplashScreen>
                   angle: _rotateCtrl.value * 2 * pi,
                   child: child,
                 ),
-                child: Opacity(
+                child: const Opacity(
                   opacity: 0.06,
                   child: _StarPattern(size: 300),
                 ),
@@ -87,7 +87,7 @@ class _SplashScreenState extends State<SplashScreen>
                   angle: -_rotateCtrl.value * 2 * pi,
                   child: child,
                 ),
-                child: Opacity(
+                child: const Opacity(
                   opacity: 0.04,
                   child: _StarPattern(size: 260),
                 ),

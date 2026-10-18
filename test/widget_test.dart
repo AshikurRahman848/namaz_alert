@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:namaz_alert/core/constants/app_constants.dart';
 import 'package:namaz_alert/features/group/model/group_model.dart';
 import 'package:namaz_alert/features/prayer/model/prayer_time_model.dart';
 

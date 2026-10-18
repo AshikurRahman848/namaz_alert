@@ -103,19 +103,10 @@ class HomeScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     // ── Next Prayer Hero Card ─────────────────────────
-                    Obx(() {
-                      final name = prayerCtrl.nextPrayerName.value;
-                      final time = prayerCtrl.nextPrayerTime.value;
-                      final cd = prayerCtrl.countdown.value;
-                      final prayers = prayerCtrl.todayPrayers.value;
-
-                      return _NextPrayerCard(
-                        namazName: name,
-                        time: time,
-                        countdown: cd,
-                        hijriDate: prayers?.hijriDate ?? '',
-                      );
-                    }).animate().slideY(begin: 0.3, duration: 600.ms, curve: Curves.easeOut).fadeIn(),
+                    _NextPrayerCard(prayerCtrl: prayerCtrl)
+                        .animate()
+                        .slideY(begin: 0.3, duration: 600.ms, curve: Curves.easeOut)
+                        .fadeIn(),
 
                     const SizedBox(height: 20),
 
@@ -247,17 +238,9 @@ class HomeScreen extends StatelessWidget {
 // ── Next Prayer Hero Card ─────────────────────────────────────────────────────
 
 class _NextPrayerCard extends StatelessWidget {
-  final String namazName;
-  final String time;
-  final String countdown;
-  final String hijriDate;
+  final PrayerController prayerCtrl;
 
-  const _NextPrayerCard({
-    required this.namazName,
-    required this.time,
-    required this.countdown,
-    required this.hijriDate,
-  });
+  const _NextPrayerCard({required this.prayerCtrl});
 
   static const _namazEmojis = {
     'Fajr': '🌙',
@@ -269,8 +252,6 @@ class _NextPrayerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final emoji = _namazEmojis[namazName] ?? '🕌';
-
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -322,8 +303,11 @@ class _NextPrayerCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Hijri date badge
-                if (hijriDate.isNotEmpty)
-                  Container(
+                Obx(() {
+                  final hijri = prayerCtrl.todayPrayers.value?.hijriDate ?? '';
+                  if (hijri.isEmpty) return const SizedBox.shrink();
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 16),
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 5),
                     decoration: BoxDecoration(
@@ -331,16 +315,15 @@ class _NextPrayerCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      hijriDate,
+                      hijri,
                       style: GoogleFonts.nunito(
                         color: Colors.white70,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
-
-                const SizedBox(height: 16),
+                  );
+                }),
 
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -361,31 +344,37 @@ class _NextPrayerCard extends StatelessWidget {
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Text(
-                                emoji,
-                                style: const TextStyle(fontSize: 28),
-                              ),
+                              Obx(() {
+                                final name = prayerCtrl.nextPrayerName.value;
+                                return Text(
+                                  _namazEmojis[name] ?? '🕌',
+                                  style: const TextStyle(fontSize: 28),
+                                );
+                              }),
                               const SizedBox(width: 8),
-                              Text(
-                                namazName.isEmpty ? '...' : namazName,
-                                style: GoogleFonts.nunito(
-                                  color: Colors.white,
-                                  fontSize: 34,
-                                  fontWeight: FontWeight.w900,
-                                  height: 1,
-                                ),
-                              ),
+                              Obx(() {
+                                final name = prayerCtrl.nextPrayerName.value;
+                                return Text(
+                                  name.isEmpty ? '...' : name,
+                                  style: GoogleFonts.nunito(
+                                    color: Colors.white,
+                                    fontSize: 34,
+                                    fontWeight: FontWeight.w900,
+                                    height: 1,
+                                  ),
+                                );
+                              }),
                             ],
                           ),
                           const SizedBox(height: 6),
-                          Text(
-                            time,
-                            style: GoogleFonts.nunito(
-                              color: AppColors.accent,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                          Obx(() => Text(
+                                prayerCtrl.nextPrayerTime.value,
+                                style: GoogleFonts.nunito(
+                                  color: AppColors.accent,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              )),
                         ],
                       ),
                     ),
@@ -406,15 +395,17 @@ class _NextPrayerCard extends StatelessWidget {
                           const Icon(Icons.timer_outlined,
                               color: Colors.white, size: 18),
                           const SizedBox(height: 4),
-                          Text(
-                            countdown,
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.nunito(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                          Obx(() => Text(
+                                prayerCtrl.countdown.value.isNotEmpty
+                                    ? prayerCtrl.countdown.value
+                                    : '--:--',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.nunito(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              )),
                         ],
                       ),
                     ),
@@ -657,9 +648,9 @@ class _PrayerCard extends StatelessWidget {
                           color: Colors.white.withValues(alpha: 0.25),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: Text(
+                        child: const Text(
                           '🔔',
-                          style: const TextStyle(fontSize: 10),
+                          style: TextStyle(fontSize: 10),
                         ),
                       ),
                   ],
@@ -730,13 +721,13 @@ class _HadithCard extends StatelessWidget {
         children: [
           // Gradient header
           Container(
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
                 colors: [Color(0xFF0D3B1A), Color(0xFF2E7D32)],
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
               ),
-              borderRadius: const BorderRadius.only(
+              borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(24),
                 topRight: Radius.circular(24),
               ),
@@ -823,24 +814,24 @@ class _HadithCard extends StatelessWidget {
 class _PrayerTimesShimmer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return const Column(
       children: [
         Row(
           children: [
             Expanded(child: _ShimmerBox(height: 130, radius: 20)),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(child: _ShimmerBox(height: 130, radius: 20)),
           ],
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         Row(
           children: [
             Expanded(child: _ShimmerBox(height: 130, radius: 20)),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(child: _ShimmerBox(height: 130, radius: 20)),
           ],
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         _ShimmerBox(height: 80, radius: 20),
       ],
     );
@@ -850,7 +841,7 @@ class _PrayerTimesShimmer extends StatelessWidget {
 class _HadithShimmer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return _ShimmerBox(height: 200, radius: 24);
+    return const _ShimmerBox(height: 200, radius: 24);
   }
 }
 

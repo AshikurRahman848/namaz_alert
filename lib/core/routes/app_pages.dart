@@ -2,7 +2,6 @@ import 'package:get/get.dart';
 import 'package:namaz_alert/core/routes/app_routes.dart';
 import 'package:namaz_alert/features/auth/controller/auth_controller.dart';
 import 'package:namaz_alert/features/auth/view/login_screen.dart';
-import 'package:namaz_alert/features/auth/view/register_screen.dart';
 import 'package:namaz_alert/features/auth/view/splash_screen.dart';
 import 'package:namaz_alert/features/group/controller/group_controller.dart';
 import 'package:namaz_alert/features/group/view/create_group_screen.dart';

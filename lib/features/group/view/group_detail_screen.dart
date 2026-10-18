@@ -204,7 +204,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                             contentPadding: EdgeInsets.zero,
                             leading: CircleAvatar(
                               backgroundColor:
-                                  AppColors.primaryLight.withOpacity(0.2),
+                                  AppColors.primaryLight.withValues(alpha: 0.2),
                               child: Text(
                                 m.name.substring(0, 1).toUpperCase(),
                                 style: const TextStyle(

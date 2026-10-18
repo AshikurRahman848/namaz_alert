@@ -38,7 +38,7 @@ class GroupsScreen extends StatelessWidget {
                 ),
                 child: Stack(
                   children: [
-                    Positioned(
+                    const Positioned(
                       right: -20,
                       top: -20,
                       child: Opacity(
@@ -305,8 +305,8 @@ class _EmptyGroupsView extends StatelessWidget {
           Container(
             width: 120,
             height: 120,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
                 colors: [Color(0xFFE8F5E9), Color(0xFFC8E6C9)],
               ),
               shape: BoxShape.circle,
