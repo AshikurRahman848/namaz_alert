@@ -14,7 +14,7 @@ class AdhanAudioService {
             isSpeakerphoneOn: true,
             stayAwake: true,
             contentType: AndroidContentType.music,
-            usageType: AndroidUsageType.alarm,
+            usageType: AndroidUsageType.media,
             audioFocus: AndroidAudioFocus.gainTransientMayDuck,
           ),
           iOS: AudioContextIOS(

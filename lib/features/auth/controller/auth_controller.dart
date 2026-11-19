@@ -3,9 +3,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:namaz_alert/core/constants/app_constants.dart';
 import 'package:namaz_alert/core/firebase/firestore_instance.dart';
 import 'package:namaz_alert/core/routes/app_routes.dart';
 import 'package:namaz_alert/core/services/fcm_service.dart';
+import 'package:namaz_alert/core/services/notification_service.dart';
 import 'package:namaz_alert/features/auth/model/user_model.dart';
 
 class AuthController extends GetxController {
@@ -21,15 +23,46 @@ class AuthController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    // Restore cached user session immediately for instant cold start
+    final cached = _getUserFromStorage();
+    if (cached != null) {
+      currentUser.value = cached;
+    }
+
     // Listen to Firebase auth state changes
     _auth.authStateChanges().listen(_onAuthStateChanged);
   }
 
+  Future<void> saveUserToStorage(UserModel user) async {
+    try {
+      await _storage.write(AppConstants.keyUser, user.toJson());
+    } catch (e) {
+      // ignore: avoid_print
+      print('Storage write error: $e');
+    }
+  }
+
+  UserModel? _getUserFromStorage() {
+    try {
+      final data = _storage.read(AppConstants.keyUser);
+      if (data != null && data is Map) {
+        return UserModel.fromJson(Map<String, dynamic>.from(data));
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('Storage read error: $e');
+    }
+    return null;
+  }
+
   Future<void> _onAuthStateChanged(User? firebaseUser) async {
     if (firebaseUser == null) {
-      currentUser.value = null;
+      // Only nullify if we don't have an active cached session
+      if (!_storage.hasData(AppConstants.keyUser)) {
+        currentUser.value = null;
+      }
     } else {
-      // Load user profile from Firestore
+      // Load user profile from Firestore & refresh storage
       await _loadUserProfile(firebaseUser.uid);
     }
   }
@@ -38,12 +71,21 @@ class AuthController extends GetxController {
     try {
       final doc = await _firestore.collection('users').doc(uid).get();
       if (doc.exists && doc.data() != null) {
-        currentUser.value = UserModel.fromJson(doc.data()!);
+        final user = UserModel.fromJson(doc.data()!);
+        currentUser.value = user;
+        await saveUserToStorage(user);
         return;
       }
     } catch (e) {
       // ignore: avoid_print
       print('Load user profile error: $e');
+    }
+
+    // Fallback: check storage first if offline
+    final cached = _getUserFromStorage();
+    if (cached != null && cached.uid == uid) {
+      currentUser.value = cached;
+      return;
     }
 
     // If Firestore document doesn't exist or load failed, build from Firebase Auth
@@ -62,6 +104,7 @@ class AuthController extends GetxController {
         fcmToken: FcmService.currentToken,
       );
       currentUser.value = user;
+      await saveUserToStorage(user);
       try {
         await _firestore
             .collection('users')
@@ -74,6 +117,42 @@ class AuthController extends GetxController {
     }
   }
 
+  /// Check initial auth state during app launch with graceful fallback
+  Future<bool> checkInitialAuthState() async {
+    // 1. Immediately read local storage
+    final cached = _getUserFromStorage();
+    if (cached != null) {
+      currentUser.value = cached;
+    }
+
+    // 2. Check if Firebase already has a user
+    User? fbUser = _auth.currentUser;
+
+    // 3. If null, wait up to 2 seconds for Firebase Auth to finish disk restoration
+    if (fbUser == null) {
+      try {
+        fbUser = await _auth
+            .authStateChanges()
+            .first
+            .timeout(const Duration(milliseconds: 2000), onTimeout: () => null);
+      } catch (_) {
+        fbUser = null;
+      }
+    }
+
+    if (fbUser != null) {
+      await _loadUserProfile(fbUser.uid);
+      return true;
+    }
+
+    // 4. If Firebase returned null but we have cached user (e.g. offline boot)
+    if (currentUser.value != null || cached != null) {
+      return true;
+    }
+
+    return false;
+  }
+
   /// Ensure user is loaded, resolving from Firebase Auth if necessary
   Future<UserModel?> ensureUserLoaded() async {
     if (currentUser.value != null) return currentUser.value;
@@ -84,7 +163,10 @@ class AuthController extends GetxController {
     return currentUser.value;
   }
 
-  bool get isLoggedIn => _auth.currentUser != null;
+  bool get isLoggedIn =>
+      _auth.currentUser != null ||
+      currentUser.value != null ||
+      _storage.hasData(AppConstants.keyUser);
 
   /// Sign In with Google
   Future<void> signInWithGoogle() async {
@@ -134,6 +216,7 @@ class AuthController extends GetxController {
               .doc(user.uid)
               .set(user.toJson());
           currentUser.value = user;
+          await saveUserToStorage(user);
         } else {
           await _updateFcmToken();
           await _loadUserProfile(firebaseUser.uid);
@@ -189,6 +272,7 @@ class AuthController extends GetxController {
           .set(user.toJson());
 
       currentUser.value = user;
+      await saveUserToStorage(user);
       Get.offAllNamed(AppRoutes.home);
     } on FirebaseAuthException catch (e) {
       errorMessage.value = _authErrorMessage(e.code);
@@ -208,13 +292,17 @@ class AuthController extends GetxController {
     errorMessage.value = '';
 
     try {
-      await _auth.signInWithEmailAndPassword(
+      final credential = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
 
       // Update FCM token on login
       await _updateFcmToken();
+
+      if (credential.user != null) {
+        await _loadUserProfile(credential.user!.uid);
+      }
 
       Get.offAllNamed(AppRoutes.home);
     } on FirebaseAuthException catch (e) {
@@ -262,6 +350,9 @@ class AuthController extends GetxController {
     await _auth.signOut();
     currentUser.value = null;
     _storage.erase();
+    try {
+      await NotificationService.cancelAll();
+    } catch (_) {}
     Get.offAllNamed(AppRoutes.login);
   }
 

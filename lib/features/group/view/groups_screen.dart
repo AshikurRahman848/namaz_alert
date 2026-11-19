@@ -78,9 +78,9 @@ class GroupsScreen extends StatelessWidget {
             ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.login_rounded, color: Colors.white),
-                tooltip: 'Join with Code',
-                onPressed: () => _showJoinDialog(context, groupCtrl),
+                icon: const Icon(Icons.search_rounded, color: Colors.white),
+                tooltip: 'Search & Join Group',
+                onPressed: () => showJoinDialog(context, groupCtrl),
               ),
               const SizedBox(width: 4),
             ],
@@ -90,8 +90,9 @@ class GroupsScreen extends StatelessWidget {
           SliverToBoxAdapter(
             child: Obx(() {
               final myGroups = groupCtrl.myGroups;
+              final pending = groupCtrl.pendingGroups;
 
-              if (myGroups.isEmpty) {
+              if (myGroups.isEmpty && pending.isEmpty) {
                 return _EmptyGroupsView(groupCtrl: groupCtrl);
               }
 
@@ -100,7 +101,133 @@ class GroupsScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SizedBox(height: 8),
+                    // Search / Join group banner
+                    InkWell(
+                      onTap: () => showJoinDialog(context, groupCtrl),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 14),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.grey.shade200),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.03),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.search_rounded,
+                                color: AppColors.primary, size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'গ্রুপের নাম বা কোড দিয়ে খুঁজুন...',
+                                style: GoogleFonts.nunito(
+                                  fontSize: 13,
+                                  color: Colors.grey.shade500,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color:
+                                    AppColors.primary.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'Search',
+                                style: GoogleFonts.nunito(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (pending.isNotEmpty) ...[
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 14),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.amber.shade300),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.hourglass_top_rounded,
+                                    color: Colors.amber, size: 18),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'অপেক্ষমাণ যোগদানের অনুরোধ (${pending.length})',
+                                  style: GoogleFonts.nunito(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.brown.shade800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            ...pending.map((pg) => Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 3),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.circle,
+                                          size: 5, color: Colors.amber),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          pg.name,
+                                          style: GoogleFonts.nunito(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 13,
+                                            color: Colors.brown.shade900,
+                                          ),
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.amber.shade100,
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          'Pending',
+                                          style: GoogleFonts.nunito(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w800,
+                                            color: Colors.brown.shade800,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 4),
                     ...myGroups.asMap().entries.map((entry) {
                       final i = entry.key;
                       final group = entry.value;
@@ -113,6 +240,7 @@ class GroupsScreen extends StatelessWidget {
                           AppRoutes.groupDetail,
                           arguments: group.id,
                         ),
+                        onLeave: () => _confirmLeaveGroup(context, group),
                       ).animate(delay: Duration(milliseconds: i * 80)).slideY(begin: 0.3).fadeIn();
                     }),
 
@@ -138,148 +266,447 @@ class GroupsScreen extends StatelessWidget {
     );
   }
 
-  void _showJoinDialog(BuildContext context, GroupController ctrl) {
-    final codeCtrl = TextEditingController();
+  static void showJoinDialog(BuildContext context, GroupController ctrl) {
+    Get.dialog(
+      _JoinGroupDialog(ctrl: ctrl),
+    );
+  }
+
+  static void _confirmLeaveGroup(BuildContext context, GroupModel group) {
+    final authCtrl = Get.find<AuthController>();
+    final groupCtrl = Get.find<GroupController>();
+    final currentUid = authCtrl.currentUser.value?.uid ?? '';
+    final isSoleMember = group.members.length <= 1;
+    final isPrimaryAdmin = group.isPrimaryAdmin(currentUid);
+
+    String dialogMessage;
+    if (isSoleMember) {
+      dialogMessage =
+          '⚠️ আপনি এই গ্রুপের একমাত্র মেম্বার। আপনি গ্রুপ ত্যাগ করলে এই গ্রুপটি চিরতরে মুছে যাবে।\n\nআপনি কি নিশ্চিতভাবে গ্রুপ ত্যাগ করতে চান?';
+    } else if (isPrimaryAdmin) {
+      dialogMessage =
+          '⚠️ আপনি এই গ্রুপের প্রধান অ্যাডমিন। আপনি গ্রুপ ত্যাগ করলে অন্য একজন মেম্বারকে স্বয়ংক্রিয়ভাবে প্রধান অ্যাডমিন করা হবে।\n\nআপনি কি নিশ্চিতভাবে "${group.name}" গ্রুপ থেকে বের হয়ে যেতে চান?';
+    } else {
+      dialogMessage =
+          'আপনি কি নিশ্চিতভাবে "${group.name}" গ্রুপ ত্যাগ করতে চান?\n\nবের হয়ে গেলে আপনি এই গ্রুপের জামায়াতের সময় ও অ্যালার্ট আর পাবেন না এবং সাধারণ নামাজের সময় অনুযায়ী নোটিফিকেশন চালু হবে।';
+    }
 
     Get.dialog(
-      Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.exit_to_app_rounded,
+                color: Colors.redAccent, size: 24),
+            const SizedBox(width: 8),
+            Text(
+              'গ্রুপ ত্যাগ নিশ্চিতকরণ',
+              style: GoogleFonts.nunito(
+                fontWeight: FontWeight.w900,
+                fontSize: 18,
+                color: Colors.red.shade900,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          dialogMessage,
+          style: GoogleFonts.nunito(
+            fontSize: 13,
+            color: AppColors.textDark,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text(
+              'বাতিল',
+              style: GoogleFonts.nunito(
+                fontWeight: FontWeight.w700,
+                color: AppColors.textGrey,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () async {
+              Get.back(); // close dialog
+              await groupCtrl.leaveGroup(groupId: group.id);
+            },
+            child: Text(
+              'হ্যাঁ, বের হয়ে যান',
+              style: GoogleFonts.nunito(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _JoinGroupDialog extends StatefulWidget {
+  final GroupController ctrl;
+  const _JoinGroupDialog({required this.ctrl});
+
+  @override
+  State<_JoinGroupDialog> createState() => _JoinGroupDialogState();
+}
+
+class _JoinGroupDialogState extends State<_JoinGroupDialog> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  List<Map<String, dynamic>> _results = [];
+  final Map<String, bool> _sendingMap = {};
+  bool _isSearching = false;
+  String? _error;
+
+  Future<void> _handleSearch() async {
+    final query = _searchCtrl.text.trim();
+    if (query.isEmpty) return;
+
+    setState(() {
+      _isSearching = true;
+      _error = null;
+      _results = [];
+    });
+
+    final res = await widget.ctrl.searchGroups(query);
+    if (!mounted) return;
+
+    setState(() {
+      _isSearching = false;
+      if (res.isEmpty) {
+        _error = widget.ctrl.errorMessage.value.isNotEmpty
+            ? widget.ctrl.errorMessage.value
+            : 'কোনো গ্রুপ খুঁজে পাওয়া যায়নি। কোড বা নাম চেক করে পুনরায় চেষ্টা করুন।';
+      } else {
+        _results = res;
+      }
+    });
+  }
+
+  Future<void> _handleSendRequest(Map<String, dynamic> item) async {
+    final groupId = item['groupId'] as String;
+    setState(() {
+      _sendingMap[groupId] = true;
+    });
+
+    final success = await widget.ctrl.sendJoinRequest(groupId);
+    if (!mounted) return;
+
+    setState(() {
+      _sendingMap[groupId] = false;
+      if (success) {
+        item['isPending'] = true;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420, maxHeight: 620),
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 64,
-                height: 64,
+                width: 56,
+                height: 56,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [Color(0xFF1B5E20), Color(0xFF4CAF50)],
                   ),
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Center(
-                  child: Text('🔑', style: TextStyle(fontSize: 32)),
+                  child: Text('🔍', style: TextStyle(fontSize: 26)),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               Text(
-                'Join a Group',
+                'Search & Join Group',
                 style: GoogleFonts.nunito(
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
                   color: AppColors.textDark,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               Text(
-                'Enter the invite code from your group admin',
+                'ইনভাইট কোড (যেমন: NAM-XXXX) বা গ্রুপের নাম দিয়ে খুঁজুন',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.nunito(
-                  fontSize: 13,
+                  fontSize: 12,
                   color: AppColors.textGrey,
                 ),
               ),
-              const SizedBox(height: 20),
-              TextFormField(
-                controller: codeCtrl,
-                textCapitalization: TextCapitalization.characters,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.nunito(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 4,
-                  color: AppColors.primary,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'NAM-XXXX',
-                  hintStyle: GoogleFonts.nunito(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 4,
-                    color: Colors.grey.shade300,
-                  ),
-                  filled: true,
-                  fillColor: AppColors.primary.withValues(alpha: 0.05),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide:
-                        BorderSide(color: AppColors.primary.withValues(alpha: 0.2)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide:
-                        BorderSide(color: AppColors.primary.withValues(alpha: 0.2)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide:
-                        const BorderSide(color: AppColors.primary, width: 2),
-                  ),
-                ),
-              ),
-              Obx(() {
-                final err = ctrl.errorMessage.value;
-                if (err.isEmpty) return const SizedBox.shrink();
-                return Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(err,
-                      style: const TextStyle(
-                          color: AppColors.error, fontSize: 12)),
-                );
-              }),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
-                    child: TextButton(
-                      onPressed: () => Get.back(),
-                      child: Text(
-                        'Cancel',
-                        style: GoogleFonts.nunito(
-                            color: AppColors.textGrey,
-                            fontWeight: FontWeight.w700),
+                    child: TextField(
+                      controller: _searchCtrl,
+                      textInputAction: TextInputAction.search,
+                      onSubmitted: (_) => _handleSearch(),
+                      decoration: InputDecoration(
+                        hintText: 'NAM-XXXX বা গ্রুপের নাম...',
+                        hintStyle: GoogleFonts.nunito(
+                          fontSize: 14,
+                          color: Colors.grey.shade400,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                        filled: true,
+                        fillColor: AppColors.primary.withValues(alpha: 0.05),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(
+                              color: AppColors.primary.withValues(alpha: 0.2)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(
+                              color: AppColors.primary.withValues(alpha: 0.2)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                              color: AppColors.primary, width: 2),
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Expanded(
-                    child: Obx(() => Container(
-                          height: 48,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF1B5E20), Color(0xFF4CAF50)],
-                            ),
-                            borderRadius: BorderRadius.circular(14),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.primary.withValues(alpha: 0.3),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: TextButton(
-                            onPressed: ctrl.isLoading.value
-                                ? null
-                                : () => ctrl.joinGroup(codeCtrl.text.trim()),
-                            child: ctrl.isLoading.value
-                                ? const SizedBox(
-                                    height: 18,
-                                    width: 18,
-                                    child: CircularProgressIndicator(
-                                        color: Colors.white, strokeWidth: 2))
-                                : Text(
-                                    'Join',
-                                    style: GoogleFonts.nunito(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                          ),
-                        )),
+                  SizedBox(
+                    height: 48,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                      ),
+                      onPressed: _isSearching ? null : _handleSearch,
+                      child: _isSearching
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 2),
+                            )
+                          : const Icon(Icons.search_rounded, size: 22),
+                    ),
                   ),
                 ],
+              ),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Text(
+                    _error!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        color: AppColors.error, fontSize: 12),
+                  ),
+                ),
+              const SizedBox(height: 14),
+
+              // Search results list
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ..._results.map((item) {
+                        final isSending =
+                            _sendingMap[item['groupId'] as String] ?? false;
+                        final isMember = item['isAlreadyMember'] == true;
+                        final isPending = item['isPending'] == true;
+
+                        return Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F8E9),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color:
+                                  AppColors.primary.withValues(alpha: 0.25),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text('🕌',
+                                      style: TextStyle(fontSize: 22)),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          item['groupName'] as String? ?? '',
+                                          style: GoogleFonts.nunito(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w900,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                        if ((item['city'] as String? ?? '')
+                                            .isNotEmpty)
+                                          Text(
+                                            '📍 ${item['city']}',
+                                            style: GoogleFonts.nunito(
+                                              fontSize: 11,
+                                              color: AppColors.textGrey,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  const Icon(Icons.lock_outline_rounded,
+                                      size: 13, color: AppColors.textGrey),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      'নন-মেম্বারদের জন্য নামাজের সময় গোপন। অ্যাডমিন অনুমোদন করলে সব দেখা যাবে।',
+                                      style: GoogleFonts.nunito(
+                                        fontSize: 11,
+                                        color: AppColors.textGrey,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              if (isMember)
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.shade100,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '✅ আপনি ইতিমধ্যেই এই গ্রুপের মেম্বার',
+                                      style: GoogleFonts.nunito(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.green.shade800,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              else if (isPending)
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber.shade100,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '⏳ অনুরোধ পাঠানো হয়েছে (অপেক্ষমাণ)',
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.nunito(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.brown.shade800,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              else
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 42,
+                                  child: ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.primary,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                    onPressed: isSending
+                                        ? null
+                                        : () => _handleSendRequest(item),
+                                    icon: isSending
+                                        ? const SizedBox(
+                                            width: 14,
+                                            height: 14,
+                                            child: CircularProgressIndicator(
+                                                color: Colors.white,
+                                                strokeWidth: 2),
+                                          )
+                                        : const Icon(Icons.send_rounded,
+                                            size: 15),
+                                    label: Text(
+                                      isSending
+                                          ? 'অনুরোধ পাঠানো হচ্ছে...'
+                                          : 'যোগদানের অনুরোধ পাঠান (Join Request)',
+                                      style: GoogleFonts.nunito(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Get.back(),
+                  child: Text(
+                    'Close',
+                    style: GoogleFonts.nunito(
+                      color: AppColors.textGrey,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
@@ -353,9 +780,9 @@ class _EmptyGroupsView extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: _ActionCard(
-                  emoji: '🔑',
-                  label: 'Join with\nCode',
-                  onTap: () => Get.back(),
+                  emoji: '🔍',
+                  label: 'Search &\nJoin Group',
+                  onTap: () => GroupsScreen.showJoinDialog(context, groupCtrl),
                 ).animate(delay: 500.ms).slideX(begin: 0.3).fadeIn(),
               ),
             ],
@@ -422,11 +849,13 @@ class _GroupCard extends StatelessWidget {
   final GroupModel group;
   final bool isAdmin;
   final VoidCallback onTap;
+  final VoidCallback? onLeave;
 
   const _GroupCard({
     required this.group,
     required this.isAdmin,
     required this.onTap,
+    this.onLeave,
   });
 
   static const List<List<Color>> _gradients = [
@@ -548,9 +977,49 @@ class _GroupCard extends StatelessWidget {
                         ),
                       ),
 
-                      const Icon(
-                        Icons.chevron_right_rounded,
-                        color: AppColors.textGrey,
+                      PopupMenuButton<String>(
+                        icon: const Icon(
+                          Icons.more_vert,
+                          color: AppColors.textGrey,
+                          size: 20,
+                        ),
+                        padding: EdgeInsets.zero,
+                        onSelected: (val) {
+                          if (val == 'details') {
+                            onTap();
+                          } else if (val == 'leave') {
+                            onLeave?.call();
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: 'details',
+                            child: Row(
+                              children: [
+                                Icon(Icons.info_outline_rounded,
+                                    color: AppColors.primary, size: 18),
+                                SizedBox(width: 8),
+                                Text('বিস্তারিত দেখুন',
+                                    style: TextStyle(fontSize: 13)),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: 'leave',
+                            child: Row(
+                              children: [
+                                Icon(Icons.logout_rounded,
+                                    color: Colors.redAccent, size: 18),
+                                SizedBox(width: 8),
+                                Text('গ্রুপ ত্যাগ করুন',
+                                    style: TextStyle(
+                                        color: Colors.redAccent,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 13)),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

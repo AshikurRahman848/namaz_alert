@@ -30,6 +30,36 @@ class GroupMember {
       );
 }
 
+class GroupJoinRequest {
+  final String uid;
+  final String name;
+  final String email;
+  final DateTime requestedAt;
+
+  const GroupJoinRequest({
+    required this.uid,
+    required this.name,
+    required this.email,
+    required this.requestedAt,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'uid': uid,
+        'name': name,
+        'email': email,
+        'requestedAt': requestedAt.toIso8601String(),
+      };
+
+  factory GroupJoinRequest.fromJson(Map<String, dynamic> json) =>
+      GroupJoinRequest(
+        uid: json['uid'] ?? '',
+        name: json['name'] ?? '',
+        email: json['email'] ?? '',
+        requestedAt:
+            DateTime.tryParse(json['requestedAt'] ?? '') ?? DateTime.now(),
+      );
+}
+
 class GroupNotificationSettings {
   final bool fajrEnabled;
   final bool dhuhrEnabled;
@@ -107,6 +137,7 @@ class GroupModel {
   final int calculationMethod;
   final String inviteCode;
   final List<GroupMember> members;
+  final List<GroupJoinRequest> joinRequests;
   final GroupNotificationSettings notificationSettings;
   final Map<String, String> customPrayerTimes;
   final DateTime createdAt;
@@ -120,6 +151,7 @@ class GroupModel {
     this.calculationMethod = 1,
     required this.inviteCode,
     this.members = const [],
+    this.joinRequests = const [],
     this.notificationSettings = const GroupNotificationSettings(),
     this.customPrayerTimes = const {},
     required this.createdAt,
@@ -157,6 +189,7 @@ class GroupModel {
           role: 'admin',
         ),
       ],
+      joinRequests: const [],
       notificationSettings:
           GroupNotificationSettings(offsetMinutes: offsetMinutes),
       customPrayerTimes: customPrayerTimes,
@@ -165,8 +198,12 @@ class GroupModel {
   }
 
   bool isMember(String uid) => members.any((m) => m.uid == uid);
-  bool isAdmin(String uid) => adminUid == uid;
+  bool isAdmin(String uid) =>
+      adminUid == uid || members.any((m) => m.uid == uid && m.isAdmin);
+  bool isPrimaryAdmin(String uid) => adminUid == uid;
+  bool isPendingRequest(String uid) => joinRequests.any((r) => r.uid == uid);
   int get memberCount => members.length;
+  int get joinRequestCount => joinRequests.length;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -177,6 +214,7 @@ class GroupModel {
         'calculationMethod': calculationMethod,
         'inviteCode': inviteCode,
         'members': members.map((m) => m.toJson()).toList(),
+        'joinRequests': joinRequests.map((r) => r.toJson()).toList(),
         'notificationSettings': notificationSettings.toJson(),
         'customPrayerTimes': customPrayerTimes,
         'createdAt': createdAt.toIso8601String(),
@@ -191,10 +229,16 @@ class GroupModel {
         calculationMethod: json['calculationMethod'] ?? 1,
         inviteCode: json['inviteCode'] ?? '',
         members: (json['members'] as List<dynamic>? ?? [])
-            .map((m) => GroupMember.fromJson(m as Map<String, dynamic>))
+            .map((m) =>
+                GroupMember.fromJson(Map<String, dynamic>.from(m as Map)))
+            .toList(),
+        joinRequests: (json['joinRequests'] as List<dynamic>? ?? [])
+            .map((r) =>
+                GroupJoinRequest.fromJson(Map<String, dynamic>.from(r as Map)))
             .toList(),
         notificationSettings: GroupNotificationSettings.fromJson(
-          json['notificationSettings'] as Map<String, dynamic>? ?? {},
+          Map<String, dynamic>.from(
+              json['notificationSettings'] as Map<dynamic, dynamic>? ?? {}),
         ),
         customPrayerTimes: Map<String, String>.from(
           json['customPrayerTimes'] as Map<dynamic, dynamic>? ?? {},
@@ -204,22 +248,25 @@ class GroupModel {
 
   GroupModel copyWith({
     String? name,
+    String? adminUid,
     String? city,
     String? country,
     int? calculationMethod,
     List<GroupMember>? members,
+    List<GroupJoinRequest>? joinRequests,
     GroupNotificationSettings? notificationSettings,
     Map<String, String>? customPrayerTimes,
   }) =>
       GroupModel(
         id: id,
         name: name ?? this.name,
-        adminUid: adminUid,
+        adminUid: adminUid ?? this.adminUid,
         city: city ?? this.city,
         country: country ?? this.country,
         calculationMethod: calculationMethod ?? this.calculationMethod,
         inviteCode: inviteCode,
         members: members ?? this.members,
+        joinRequests: joinRequests ?? this.joinRequests,
         notificationSettings: notificationSettings ?? this.notificationSettings,
         customPrayerTimes: customPrayerTimes ?? this.customPrayerTimes,
         createdAt: createdAt,

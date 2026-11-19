@@ -8,6 +8,7 @@ import 'package:namaz_alert/features/group/view/create_group_screen.dart';
 import 'package:namaz_alert/features/group/view/group_detail_screen.dart';
 import 'package:namaz_alert/features/group/view/groups_screen.dart';
 import 'package:namaz_alert/features/home/view/home_screen.dart';
+import 'package:namaz_alert/features/prayer/controller/prayer_controller.dart';
 
 class AppPages {
   static final routes = [
@@ -29,6 +30,10 @@ class AppPages {
     GetPage(
       name: AppRoutes.home,
       page: () => const HomeScreen(),
+      binding: BindingsBuilder(() {
+        Get.put(PrayerController(), permanent: true);
+        Get.put(GroupController(), permanent: true);
+      }),
     ),
     GetPage(
       name: AppRoutes.groups,

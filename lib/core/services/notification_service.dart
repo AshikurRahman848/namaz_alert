@@ -63,6 +63,8 @@ class NotificationService {
         AndroidFlutterLocalNotificationsPlugin>();
 
     // Delete older cached channels so Android OS updates sound and importance
+    await androidImpl?.deleteNotificationChannel('namaz_adhan_channel_v3');
+    await androidImpl?.deleteNotificationChannel('namaz_adhan_channel_v2');
     await androidImpl?.deleteNotificationChannel('namaz_adhan_channel_v1');
     await androidImpl?.deleteNotificationChannel('namaz_channel_v4');
     await androidImpl?.deleteNotificationChannel('namaz_channel_v3');
@@ -74,12 +76,12 @@ class NotificationService {
     const namazChannel = AndroidNotificationChannel(
       AppConstants.namazChannelId,
       AppConstants.namazChannelName,
-      description: 'Notifications for upcoming namaz times with Adhan alarm sound',
+      description: 'Notifications for upcoming namaz times with Adhan alert sound',
       importance: Importance.max,
       playSound: true,
       sound: adhanSound,
       enableVibration: true,
-      audioAttributesUsage: AudioAttributesUsage.alarm,
+      audioAttributesUsage: AudioAttributesUsage.notification,
     );
 
     const hadithChannel = AndroidNotificationChannel(
@@ -122,6 +124,8 @@ class NotificationService {
     String? title,
     String? body,
   }) async {
+    // 1. Immediately cancel the active notification to halt the currently playing alert sound in Android
+    await _plugin.cancel(id);
     await AdhanAudioService.stopAdhan();
 
     String displayTitle = title ?? '🕌 নামাজের সময় সতর্কতা';
@@ -195,9 +199,9 @@ class NotificationService {
         playSound: true,
         sound: const RawResourceAndroidNotificationSound('adhan'),
         enableVibration: true,
-        audioAttributesUsage: AudioAttributesUsage.alarm,
+        audioAttributesUsage: AudioAttributesUsage.notification,
         fullScreenIntent: true,
-        category: AndroidNotificationCategory.alarm,
+        category: AndroidNotificationCategory.reminder,
         visibility: NotificationVisibility.public,
         actions: const <AndroidNotificationAction>[
           AndroidNotificationAction(
@@ -312,9 +316,9 @@ class NotificationService {
         playSound: true,
         sound: RawResourceAndroidNotificationSound('adhan'),
         enableVibration: true,
-        audioAttributesUsage: AudioAttributesUsage.alarm,
+        audioAttributesUsage: AudioAttributesUsage.notification,
         fullScreenIntent: true,
-        category: AndroidNotificationCategory.alarm,
+        category: AndroidNotificationCategory.reminder,
         visibility: NotificationVisibility.public,
         actions: [
           AndroidNotificationAction(

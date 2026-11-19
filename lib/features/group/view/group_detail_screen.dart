@@ -268,6 +268,13 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           elevation: 0,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.logout_rounded, color: Colors.white),
+              tooltip: 'গ্রুপ ত্যাগ করুন',
+              onPressed: () => _confirmLeaveGroup(context, group),
+            ),
+          ],
         ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -869,6 +876,149 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
 
               const SizedBox(height: 20),
 
+              // ── 3.5. Pending Join Requests (Admin Only) ───────────────
+              if (isAdmin && group.joinRequests.isNotEmpty) ...[
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.amber.shade300, width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.amber.withValues(alpha: 0.1),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.shade100,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.person_add_rounded,
+                                color: Colors.amber, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'যোগদানের অনুরোধ (${group.joinRequestCount} টি)',
+                                  style: GoogleFonts.nunito(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.textDark,
+                                  ),
+                                ),
+                                Text(
+                                  'মেম্বার হিসেবে যুক্ত করতে অনুমোদন করুন',
+                                  style: GoogleFonts.nunito(
+                                    fontSize: 12,
+                                    color: AppColors.textGrey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      ...group.joinRequests.map((req) => Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: Colors.grey.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 18,
+                                  backgroundColor:
+                                      AppColors.primary.withValues(alpha: 0.1),
+                                  child: Text(
+                                    req.name.isNotEmpty
+                                        ? req.name.substring(0, 1).toUpperCase()
+                                        : 'U',
+                                    style: GoogleFonts.nunito(
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        req.name,
+                                        style: GoogleFonts.nunito(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 14,
+                                          color: AppColors.textDark,
+                                        ),
+                                      ),
+                                      Text(
+                                        req.email,
+                                        style: GoogleFonts.nunito(
+                                          fontSize: 11,
+                                          color: AppColors.textGrey,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                // Approve button
+                                IconButton(
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: const Color(0xFF1B5E20),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.all(8),
+                                  ),
+                                  icon: const Icon(Icons.check, size: 18),
+                                  tooltip: 'অনুমোদন (Approve)',
+                                  onPressed: () => _groupCtrl.approveJoinRequest(
+                                    groupId: group.id,
+                                    request: req,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                // Reject button
+                                IconButton(
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: Colors.red.shade50,
+                                    foregroundColor: Colors.red.shade700,
+                                    padding: const EdgeInsets.all(8),
+                                  ),
+                                  icon: const Icon(Icons.close, size: 18),
+                                  tooltip: 'বাতিল (Reject)',
+                                  onPressed: () => _groupCtrl.rejectJoinRequest(
+                                    groupId: group.id,
+                                    request: req,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+
               // ── 4. Members List ──────────────────────────────────────
               Container(
                 decoration: BoxDecoration(
@@ -924,26 +1074,32 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                               color: AppColors.textGrey,
                             ),
                           ),
-                          trailing: m.isAdmin
-                              ? Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.accent,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    'এডমিন',
-                                    style: GoogleFonts.nunito(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w800,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                )
-                              : null,
+                          trailing: _buildMemberTrailing(group, m, isAdmin),
                         )),
                   ],
+                ),
+              ),
+
+              // ── 5. Leave Group Section ──────────────────────────────
+              const SizedBox(height: 24),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red.shade700,
+                  side: BorderSide(color: Colors.red.shade300, width: 1.5),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  backgroundColor: Colors.red.shade50,
+                ),
+                onPressed: () => _confirmLeaveGroup(context, group),
+                icon: const Icon(Icons.logout_rounded, size: 20),
+                label: Text(
+                  'গ্রুপ ত্যাগ করুন (Leave Group)',
+                  style: GoogleFonts.nunito(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
 
@@ -953,5 +1109,294 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
         ),
       );
     });
+  }
+
+  Widget? _buildMemberTrailing(
+      GroupModel group, GroupMember m, bool isViewerAdmin) {
+    final currentUid = _authCtrl.currentUser.value?.uid ?? '';
+    final isPrimary = m.uid == group.adminUid;
+
+    if (isPrimary) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF8E1),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.amber.shade400),
+        ),
+        child: Text(
+          '👑 প্রধান এডমিন',
+          style: GoogleFonts.nunito(
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+            color: Colors.brown.shade800,
+          ),
+        ),
+      );
+    }
+
+    if (m.isAdmin) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: AppColors.accent.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.accent),
+            ),
+            child: Text(
+              '🛡️ এডমিন',
+              style: GoogleFonts.nunito(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: Colors.brown.shade900,
+              ),
+            ),
+          ),
+          if (isViewerAdmin && m.uid != currentUid)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert,
+                  size: 18, color: AppColors.textGrey),
+              padding: EdgeInsets.zero,
+              onSelected: (val) {
+                if (val == 'demote') {
+                  _confirmDemoteAdmin(context, group, m);
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'demote',
+                  child: Row(
+                    children: [
+                      Icon(Icons.remove_moderator_outlined,
+                          size: 18, color: Colors.orange),
+                      SizedBox(width: 8),
+                      Text('অ্যাডমিন পদ বাতিল করুন',
+                          style: TextStyle(fontSize: 13)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+        ],
+      );
+    }
+
+    if (isViewerAdmin && m.uid != currentUid) {
+      return OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFF1B5E20),
+          side: const BorderSide(color: Color(0xFF1B5E20)),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+          visualDensity: VisualDensity.compact,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        icon: const Icon(Icons.add_moderator_rounded, size: 15),
+        label: Text(
+          'এডমিন করুন',
+          style: GoogleFonts.nunito(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        onPressed: () => _confirmMakeAdmin(context, group, m),
+      );
+    }
+
+    return null;
+  }
+
+  void _confirmMakeAdmin(
+      BuildContext context, GroupModel group, GroupMember member) {
+    Get.dialog(
+      AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.admin_panel_settings_rounded,
+                color: Color(0xFF1B5E20), size: 24),
+            const SizedBox(width: 8),
+            Text(
+              'গ্রুপ অ্যাডমিন করুন',
+              style: GoogleFonts.nunito(
+                  fontWeight: FontWeight.w900, fontSize: 18),
+            ),
+          ],
+        ),
+        content: Text(
+          'আপনি কি "${member.name}" কে এই গ্রুপের অ্যাডমিন করতে চান?\n\nঅ্যাডমিন হিসেবে তিনি নামাজের সময় নির্ধারণ, নোটিফিকেশন সেটিংস পরিবর্তন এবং নতুন মেম্বারদের যোগদানের অনুরোধ অনুমোদন করতে পারবেন।',
+          style: GoogleFonts.nunito(
+              fontSize: 13, color: AppColors.textDark, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text(
+              'বাতিল',
+              style: GoogleFonts.nunito(
+                  fontWeight: FontWeight.w700, color: AppColors.textGrey),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1B5E20),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () async {
+              Get.back();
+              await _groupCtrl.promoteMemberToAdmin(
+                groupId: group.id,
+                memberUid: member.uid,
+              );
+            },
+            child: Text(
+              'হ্যাঁ, অ্যাডমিন করুন',
+              style: GoogleFonts.nunito(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDemoteAdmin(
+      BuildContext context, GroupModel group, GroupMember member) {
+    Get.dialog(
+      AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.remove_moderator_rounded,
+                color: Colors.orange, size: 24),
+            const SizedBox(width: 8),
+            Text(
+              'অ্যাডমিন পদ বাতিল',
+              style: GoogleFonts.nunito(
+                  fontWeight: FontWeight.w900, fontSize: 18),
+            ),
+          ],
+        ),
+        content: Text(
+          'আপনি কি "${member.name}" এর অ্যাডমিন পদ বাতিল করে সাধারণ মেম্বার করতে চান?',
+          style: GoogleFonts.nunito(fontSize: 13, color: AppColors.textDark),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text(
+              'বাতিল',
+              style: GoogleFonts.nunito(
+                  fontWeight: FontWeight.w700, color: AppColors.textGrey),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange.shade800,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () async {
+              Get.back();
+              await _groupCtrl.demoteAdminToMember(
+                groupId: group.id,
+                memberUid: member.uid,
+              );
+            },
+            child: Text(
+              'বাতিল করুন',
+              style: GoogleFonts.nunito(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmLeaveGroup(BuildContext context, GroupModel group) {
+    final currentUid = _authCtrl.currentUser.value?.uid ?? '';
+    final isSoleMember = group.members.length <= 1;
+    final isPrimaryAdmin = group.isPrimaryAdmin(currentUid);
+
+    String dialogMessage;
+    if (isSoleMember) {
+      dialogMessage =
+          '⚠️ আপনি এই গ্রুপের একমাত্র মেম্বার। আপনি গ্রুপ ত্যাগ করলে এই গ্রুপটি চিরতরে মুছে যাবে।\n\nআপনি কি নিশ্চিতভাবে গ্রুপ ত্যাগ করতে চান?';
+    } else if (isPrimaryAdmin) {
+      dialogMessage =
+          '⚠️ আপনি এই গ্রুপের প্রধান অ্যাডমিন। আপনি গ্রুপ ত্যাগ করলে অন্য একজন মেম্বারকে স্বয়ংক্রিয়ভাবে প্রধান অ্যাডমিন করা হবে।\n\nআপনি কি নিশ্চিতভাবে "${group.name}" গ্রুপ থেকে বের হয়ে যেতে চান?';
+    } else {
+      dialogMessage =
+          'আপনি কি নিশ্চিতভাবে "${group.name}" গ্রুপ ত্যাগ করতে চান?\n\nবের হয়ে গেলে আপনি এই গ্রুপের জামায়াতের সময় ও অ্যালার্ট আর পাবেন না এবং আপনার ফোনে সাধারণ নামাজের সময় অনুযায়ী নোটিফিকেশন চালু হবে।';
+    }
+
+    Get.dialog(
+      AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.exit_to_app_rounded,
+                color: Colors.redAccent, size: 24),
+            const SizedBox(width: 8),
+            Text(
+              'গ্রুপ ত্যাগ নিশ্চিতকরণ',
+              style: GoogleFonts.nunito(
+                fontWeight: FontWeight.w900,
+                fontSize: 18,
+                color: Colors.red.shade900,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          dialogMessage,
+          style: GoogleFonts.nunito(
+            fontSize: 13,
+            color: AppColors.textDark,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text(
+              'বাতিল',
+              style: GoogleFonts.nunito(
+                fontWeight: FontWeight.w700,
+                color: AppColors.textGrey,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () async {
+              Get.back(); // close confirmation dialog
+              final success = await _groupCtrl.leaveGroup(groupId: group.id);
+              if (success) {
+                Get.back(); // navigate back from GroupDetailScreen
+              }
+            },
+            child: Text(
+              'হ্যাঁ, বের হয়ে যান',
+              style: GoogleFonts.nunito(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

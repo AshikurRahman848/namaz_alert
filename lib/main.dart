@@ -8,6 +8,7 @@ import 'package:namaz_alert/core/routes/app_routes.dart';
 import 'package:namaz_alert/core/services/fcm_service.dart';
 import 'package:namaz_alert/core/services/notification_service.dart';
 import 'package:namaz_alert/core/theme/app_theme.dart';
+import 'package:namaz_alert/features/auth/controller/auth_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,6 +27,9 @@ void main() async {
   // Initialize FCM (push notifications)
   await FcmService.initialize();
 
+  // Initialize AuthController permanently
+  Get.put(AuthController(), permanent: true);
+
   runApp(const NamazAlertApp());
 }
 
@@ -35,7 +39,7 @@ class NamazAlertApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
-      title: 'NamazAlert',
+      title: 'Namaz Alert',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,

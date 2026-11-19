@@ -30,9 +30,14 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _navigate() async {
-    await Future.delayed(const Duration(milliseconds: 3000));
     final auth = Get.find<AuthController>();
-    if (auth.isLoggedIn) {
+    final results = await Future.wait([
+      Future.delayed(const Duration(milliseconds: 2000)),
+      auth.checkInitialAuthState(),
+    ]);
+
+    final bool isUserLoggedIn = results[1] as bool;
+    if (isUserLoggedIn) {
       Get.offAllNamed(AppRoutes.home);
     } else {
       Get.offAllNamed(AppRoutes.login);

@@ -4,6 +4,7 @@ import 'package:get_storage/get_storage.dart';
 import 'package:namaz_alert/core/constants/app_constants.dart';
 import 'package:namaz_alert/core/services/hadith_service.dart';
 import 'package:namaz_alert/core/services/prayer_service.dart';
+import 'package:namaz_alert/features/group/controller/group_controller.dart';
 import 'package:namaz_alert/features/hadith/model/hadith_model.dart';
 import 'package:namaz_alert/features/prayer/model/prayer_time_model.dart';
 
@@ -42,6 +43,9 @@ class PrayerController extends GetxController {
         final model = PrayerTimeModel.fromJson(data);
         todayPrayers.value = model;
         _updateNextPrayer();
+        if (Get.isRegistered<GroupController>()) {
+          Get.find<GroupController>().syncPrayerNotifications();
+        }
       }
     } catch (_) {}
   }
@@ -66,9 +70,20 @@ class PrayerController extends GetxController {
         todayPrayers.value = result;
         _saveToStorage(result);
         _updateNextPrayer();
+        if (Get.isRegistered<GroupController>()) {
+          Get.find<GroupController>().syncPrayerNotifications();
+        }
       }
     } finally {
       isLoadingPrayers.value = false;
+    }
+  }
+
+  /// Forward to central sync in GroupController
+  Future<void> schedulePersonalPrayerNotifications(
+      {int offsetMinutes = 10}) async {
+    if (Get.isRegistered<GroupController>()) {
+      await Get.find<GroupController>().syncPrayerNotifications();
     }
   }
 

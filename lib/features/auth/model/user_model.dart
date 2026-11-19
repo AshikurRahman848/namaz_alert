@@ -27,15 +27,33 @@ class UserModel {
         'createdAt': createdAt.toIso8601String(),
       };
 
-  factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
-        uid: json['uid'] ?? '',
-        name: json['name'] ?? '',
-        email: json['email'] ?? '',
-        photoUrl: json['photoUrl'],
-        fcmToken: json['fcmToken'],
-        groupIds: List<String>.from(json['groupIds'] ?? []),
-        createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
-      );
+  factory UserModel.fromJson(Map<String, dynamic> json) {
+    DateTime parsedDate;
+    final rawCreated = json['createdAt'];
+    if (rawCreated is String) {
+      parsedDate = DateTime.tryParse(rawCreated) ?? DateTime.now();
+    } else {
+      try {
+        // If it's a Firestore Timestamp or has toDate()
+        parsedDate = (rawCreated as dynamic).toDate();
+      } catch (_) {
+        parsedDate = DateTime.now();
+      }
+    }
+
+    return UserModel(
+      uid: json['uid']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+      photoUrl: json['photoUrl']?.toString(),
+      fcmToken: json['fcmToken']?.toString(),
+      groupIds: (json['groupIds'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      createdAt: parsedDate,
+    );
+  }
 
   UserModel copyWith({
     String? name,
