@@ -345,6 +345,19 @@ class GroupController extends GetxController {
     required String groupId,
     required GroupJoinRequest request,
   }) async {
+    final fbUser = _authController.firebaseUser;
+    if (fbUser == null) {
+      Get.snackbar(
+        'সেশন মেয়াদোত্তীর্ণ',
+        'লগইন সেশন পাওয়া যায়নি। অনুগ্রহ করে পুনরায় লগইন করুন।',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.redAccent.withValues(alpha: 0.9),
+        colorText: Colors.white,
+      );
+      Get.offAllNamed(AppRoutes.login);
+      return;
+    }
+
     isLoading.value = true;
     errorMessage.value = '';
 
@@ -396,6 +409,19 @@ class GroupController extends GetxController {
     required String groupId,
     required GroupJoinRequest request,
   }) async {
+    final fbUser = _authController.firebaseUser;
+    if (fbUser == null) {
+      Get.snackbar(
+        'সেশন মেয়াদোত্তীর্ণ',
+        'লগইন সেশন পাওয়া যায়নি। অনুগ্রহ করে পুনরায় লগইন করুন।',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.redAccent.withValues(alpha: 0.9),
+        colorText: Colors.white,
+      );
+      Get.offAllNamed(AppRoutes.login);
+      return;
+    }
+
     isLoading.value = true;
     errorMessage.value = '';
 
@@ -433,6 +459,19 @@ class GroupController extends GetxController {
     required String groupId,
     required String memberUid,
   }) async {
+    final fbUser = _authController.firebaseUser;
+    if (fbUser == null) {
+      Get.snackbar(
+        'সেশন মেয়াদোত্তীর্ণ',
+        'লগইন সেশন পাওয়া যায়নি। অনুগ্রহ করে পুনরায় লগইন করুন।',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.redAccent.withValues(alpha: 0.9),
+        colorText: Colors.white,
+      );
+      Get.offAllNamed(AppRoutes.login);
+      return false;
+    }
+
     isLoading.value = true;
     errorMessage.value = '';
 
@@ -499,6 +538,19 @@ class GroupController extends GetxController {
     required String groupId,
     required String memberUid,
   }) async {
+    final fbUser = _authController.firebaseUser;
+    if (fbUser == null) {
+      Get.snackbar(
+        'সেশন মেয়াদোত্তীর্ণ',
+        'লগইন সেশন পাওয়া যায়নি। অনুগ্রহ করে পুনরায় লগইন করুন।',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.redAccent.withValues(alpha: 0.9),
+        colorText: Colors.white,
+      );
+      Get.offAllNamed(AppRoutes.login);
+      return false;
+    }
+
     isLoading.value = true;
     errorMessage.value = '';
 
@@ -577,6 +629,19 @@ class GroupController extends GetxController {
     required String groupId,
     required String newAdminUid,
   }) async {
+    final fbUser = _authController.firebaseUser;
+    if (fbUser == null) {
+      Get.snackbar(
+        'সেশন মেয়াদোত্তীর্ণ',
+        'লগইন সেশন পাওয়া যায়নি। অনুগ্রহ করে পুনরায় লগইন করুন।',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.redAccent.withValues(alpha: 0.9),
+        colorText: Colors.white,
+      );
+      Get.offAllNamed(AppRoutes.login);
+      return false;
+    }
+
     isLoading.value = true;
     errorMessage.value = '';
 
@@ -900,8 +965,16 @@ class GroupController extends GetxController {
 
     try {
       final user = _authController.currentUser.value;
-      if (user == null) {
-        errorMessage.value = 'User not logged in';
+      final fbUser = _authController.firebaseUser;
+      if (user == null || fbUser == null) {
+        Get.snackbar(
+          'সেশন মেয়াদোত্তীর্ণ',
+          'লগইন সেশন পাওয়া যায়নি। অনুগ্রহ করে পুনরায় লগইন করুন।',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.redAccent.withValues(alpha: 0.9),
+          colorText: Colors.white,
+        );
+        Get.offAllNamed(AppRoutes.login);
         return false;
       }
 
