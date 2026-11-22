@@ -56,12 +56,7 @@ class AuthController extends GetxController {
   }
 
   Future<void> _onAuthStateChanged(User? firebaseUser) async {
-    if (firebaseUser == null) {
-      // Only nullify if we don't have an active cached session
-      if (!_storage.hasData(AppConstants.keyUser)) {
-        currentUser.value = null;
-      }
-    } else {
+    if (firebaseUser != null) {
       // Load user profile from Firestore & refresh storage
       await _loadUserProfile(firebaseUser.uid);
     }
@@ -119,45 +114,58 @@ class AuthController extends GetxController {
 
   /// Check initial auth state during app launch with graceful fallback
   Future<bool> checkInitialAuthState() async {
-    // 1. Immediately read local storage for quick cached display
+    // 1. Immediately restore local storage session for instant UI loading
     final cached = _getUserFromStorage();
     if (cached != null) {
       currentUser.value = cached;
     }
 
-    // 2. Check if Firebase already has an in-memory user
+    // 2. Try to restore / ensure Firebase user in background
     User? fbUser = _auth.currentUser;
-
-    // 3. If null, wait up to 2.5 seconds for Firebase Auth to finish native disk restoration
     if (fbUser == null) {
       try {
         fbUser = await _auth
             .authStateChanges()
             .firstWhere((u) => u != null)
-            .timeout(const Duration(milliseconds: 2500));
+            .timeout(const Duration(milliseconds: 1500));
       } catch (_) {
         fbUser = _auth.currentUser;
       }
     }
 
-    // 4. If Firebase user is authenticated, load their profile and continue
+    // Try silent Google sign-in if Firebase user is null
+    if (fbUser == null) {
+      try {
+        final googleUser = await _googleSignIn.signInSilently();
+        if (googleUser != null) {
+          final googleAuth = await googleUser.authentication;
+          final cred = GoogleAuthProvider.credential(
+            accessToken: googleAuth.accessToken,
+            idToken: googleAuth.idToken,
+          );
+          final userCred = await _auth.signInWithCredential(cred);
+          fbUser = userCred.user;
+        }
+      } catch (_) {}
+    }
+
     if (fbUser != null) {
       await _loadUserProfile(fbUser.uid);
       return true;
     }
 
-    // 5. If Firebase Auth genuinely has no user, cannot write to Firestore.
-    // Invalidate stale cache and require fresh login.
-    currentUser.value = null;
-    try {
-      await _storage.remove(AppConstants.keyUser);
-    } catch (_) {}
+    // 3. User has a cached session — KEEP THEM LOGGED IN!
+    // Never wipe storage on app close/restart.
+    if (currentUser.value != null || cached != null) {
+      return true;
+    }
+
     return false;
   }
 
   /// Ensure user is loaded, resolving from Firebase Auth if necessary
   Future<UserModel?> ensureUserLoaded() async {
-    if (currentUser.value != null && _auth.currentUser != null) {
+    if (currentUser.value != null) {
       return currentUser.value;
     }
     final fbUser = _auth.currentUser;
@@ -169,7 +177,10 @@ class AuthController extends GetxController {
 
   User? get firebaseUser => _auth.currentUser;
 
-  bool get isLoggedIn => _auth.currentUser != null;
+  bool get isLoggedIn =>
+      currentUser.value != null ||
+      _storage.hasData(AppConstants.keyUser) ||
+      _auth.currentUser != null;
 
   /// Sign In with Google
   Future<void> signInWithGoogle() async {

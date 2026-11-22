@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:namaz_alert/core/constants/app_constants.dart';
 import 'package:namaz_alert/core/firebase/firestore_instance.dart';
-import 'package:namaz_alert/core/routes/app_routes.dart';
 import 'package:namaz_alert/core/services/fcm_service.dart';
 import 'package:namaz_alert/core/services/hadith_service.dart';
 import 'package:namaz_alert/core/services/notification_service.dart';
@@ -345,16 +344,9 @@ class GroupController extends GetxController {
     required String groupId,
     required GroupJoinRequest request,
   }) async {
-    final fbUser = _authController.firebaseUser;
-    if (fbUser == null) {
-      Get.snackbar(
-        'সেশন মেয়াদোত্তীর্ণ',
-        'লগইন সেশন পাওয়া যায়নি। অনুগ্রহ করে পুনরায় লগইন করুন।',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.redAccent.withValues(alpha: 0.9),
-        colorText: Colors.white,
-      );
-      Get.offAllNamed(AppRoutes.login);
+    final user = _authController.currentUser.value;
+    if (user == null) {
+      Get.snackbar('ত্রুটি', 'অনুগ্রহ করে লগইন করুন।');
       return;
     }
 
@@ -409,16 +401,9 @@ class GroupController extends GetxController {
     required String groupId,
     required GroupJoinRequest request,
   }) async {
-    final fbUser = _authController.firebaseUser;
-    if (fbUser == null) {
-      Get.snackbar(
-        'সেশন মেয়াদোত্তীর্ণ',
-        'লগইন সেশন পাওয়া যায়নি। অনুগ্রহ করে পুনরায় লগইন করুন।',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.redAccent.withValues(alpha: 0.9),
-        colorText: Colors.white,
-      );
-      Get.offAllNamed(AppRoutes.login);
+    final user = _authController.currentUser.value;
+    if (user == null) {
+      Get.snackbar('ত্রুটি', 'অনুগ্রহ করে লগইন করুন।');
       return;
     }
 
@@ -459,16 +444,9 @@ class GroupController extends GetxController {
     required String groupId,
     required String memberUid,
   }) async {
-    final fbUser = _authController.firebaseUser;
-    if (fbUser == null) {
-      Get.snackbar(
-        'সেশন মেয়াদোত্তীর্ণ',
-        'লগইন সেশন পাওয়া যায়নি। অনুগ্রহ করে পুনরায় লগইন করুন।',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.redAccent.withValues(alpha: 0.9),
-        colorText: Colors.white,
-      );
-      Get.offAllNamed(AppRoutes.login);
+    final user = _authController.currentUser.value;
+    if (user == null) {
+      Get.snackbar('ত্রুটি', 'অনুগ্রহ করে লগইন করুন।');
       return false;
     }
 
@@ -538,16 +516,9 @@ class GroupController extends GetxController {
     required String groupId,
     required String memberUid,
   }) async {
-    final fbUser = _authController.firebaseUser;
-    if (fbUser == null) {
-      Get.snackbar(
-        'সেশন মেয়াদোত্তীর্ণ',
-        'লগইন সেশন পাওয়া যায়নি। অনুগ্রহ করে পুনরায় লগইন করুন।',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.redAccent.withValues(alpha: 0.9),
-        colorText: Colors.white,
-      );
-      Get.offAllNamed(AppRoutes.login);
+    final user = _authController.currentUser.value;
+    if (user == null) {
+      Get.snackbar('ত্রুটি', 'অনুগ্রহ করে লগইন করুন।');
       return false;
     }
 
@@ -629,16 +600,9 @@ class GroupController extends GetxController {
     required String groupId,
     required String newAdminUid,
   }) async {
-    final fbUser = _authController.firebaseUser;
-    if (fbUser == null) {
-      Get.snackbar(
-        'সেশন মেয়াদোত্তীর্ণ',
-        'লগইন সেশন পাওয়া যায়নি। অনুগ্রহ করে পুনরায় লগইন করুন।',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.redAccent.withValues(alpha: 0.9),
-        colorText: Colors.white,
-      );
-      Get.offAllNamed(AppRoutes.login);
+    final user = _authController.currentUser.value;
+    if (user == null) {
+      Get.snackbar('ত্রুটি', 'অনুগ্রহ করে লগইন করুন।');
       return false;
     }
 
@@ -691,16 +655,9 @@ class GroupController extends GetxController {
     String groupId,
     GroupNotificationSettings settings,
   ) async {
-    final fbUser = _authController.firebaseUser;
-    if (fbUser == null) {
-      Get.snackbar(
-        'সেশন মেয়াদোত্তীর্ণ',
-        'লগইন সেশন পাওয়া যায়নি। অনুগ্রহ করে পুনরায় লগইন করুন।',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.redAccent.withValues(alpha: 0.9),
-        colorText: Colors.white,
-      );
-      Get.offAllNamed(AppRoutes.login);
+    final user = _authController.currentUser.value;
+    if (user == null) {
+      Get.snackbar('ত্রুটি', 'অনুগ্রহ করে লগইন করুন।');
       return;
     }
 
@@ -747,16 +704,9 @@ class GroupController extends GetxController {
     String groupId,
     Map<String, String> prayerTimes,
   ) async {
-    final fbUser = _authController.firebaseUser;
-    if (fbUser == null) {
-      Get.snackbar(
-        'সেশন মেয়াদোত্তীর্ণ',
-        'লগইন সেশন পাওয়া যায়নি। অনুগ্রহ করে পুনরায় লগইন করুন।',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.redAccent.withValues(alpha: 0.9),
-        colorText: Colors.white,
-      );
-      Get.offAllNamed(AppRoutes.login);
+    final user = _authController.currentUser.value;
+    if (user == null) {
+      Get.snackbar('ত্রুটি', 'অনুগ্রহ করে লগইন করুন।');
       return;
     }
 
@@ -965,16 +915,8 @@ class GroupController extends GetxController {
 
     try {
       final user = _authController.currentUser.value;
-      final fbUser = _authController.firebaseUser;
-      if (user == null || fbUser == null) {
-        Get.snackbar(
-          'সেশন মেয়াদোত্তীর্ণ',
-          'লগইন সেশন পাওয়া যায়নি। অনুগ্রহ করে পুনরায় লগইন করুন।',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.redAccent.withValues(alpha: 0.9),
-          colorText: Colors.white,
-        );
-        Get.offAllNamed(AppRoutes.login);
+      if (user == null) {
+        Get.snackbar('ত্রুটি', 'অনুগ্রহ করে লগইন করুন।');
         return false;
       }
 
