@@ -63,6 +63,9 @@ class NotificationService {
         AndroidFlutterLocalNotificationsPlugin>();
 
     // Delete older cached channels so Android OS updates sound and importance
+    await androidImpl?.deleteNotificationChannel('namaz_adhan_channel_v6');
+    await androidImpl?.deleteNotificationChannel('namaz_adhan_channel_v5');
+    await androidImpl?.deleteNotificationChannel('namaz_adhan_channel_v4');
     await androidImpl?.deleteNotificationChannel('namaz_adhan_channel_v3');
     await androidImpl?.deleteNotificationChannel('namaz_adhan_channel_v2');
     await androidImpl?.deleteNotificationChannel('namaz_adhan_channel_v1');
@@ -76,12 +79,12 @@ class NotificationService {
     const namazChannel = AndroidNotificationChannel(
       AppConstants.namazChannelId,
       AppConstants.namazChannelName,
-      description: 'Notifications for upcoming namaz times with Adhan alert sound',
+      description: 'Notifications for namaz times with Adhan alert sound',
       importance: Importance.max,
       playSound: true,
       sound: adhanSound,
       enableVibration: true,
-      audioAttributesUsage: AudioAttributesUsage.notification,
+      audioAttributesUsage: AudioAttributesUsage.alarm,
     );
 
     const hadithChannel = AndroidNotificationChannel(
@@ -173,7 +176,21 @@ class NotificationService {
     );
   }
 
-  /// Schedule a namaz notification at [scheduledTime] minus [offsetMinutes]
+  static tz.TZDateTime _toTzDateTime(DateTime dt) {
+    try {
+      return tz.TZDateTime.from(dt, tz.local);
+    } catch (_) {
+      try {
+        return tz.TZDateTime.from(dt, tz.getLocation('Asia/Dhaka'));
+      } catch (_) {
+        return tz.TZDateTime.from(dt, tz.UTC);
+      }
+    }
+  }
+
+  /// Schedule both:
+  /// 1. Exact Prayer Time Notification (With full Adhan sound alarm) at [prayerTime]
+  /// 2. Pre-Prayer Reminder Notification (With hadith) at [prayerTime - offsetMinutes] (if offsetMinutes > 0)
   static Future<void> scheduleNamazNotification({
     required int id,
     required String namazName,
@@ -182,14 +199,28 @@ class NotificationService {
     String? hadithText,
   }) async {
     final now = DateTime.now();
-    var notifyAt = prayerTime.subtract(Duration(minutes: offsetMinutes));
 
-    final title = '🕌 $namazName — $offsetMinutes min remaining';
-    final body = hadithText != null
-        ? '⏰ $offsetMinutes min left until $namazName\n\n📖 হাদিস:\n$hadithText'
-        : '⏰ $offsetMinutes minutes until $namazName prayer';
+    // ── 1. EXACT PRAYER TIME (ADHAN ALARM) ──────────────────────────
+    // Target prayer time for today
+    var adhanTime = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      prayerTime.hour,
+      prayerTime.minute,
+      0,
+    );
 
-    final details = NotificationDetails(
+    // If prayer time for today has already passed, schedule for tomorrow
+    if (adhanTime.isBefore(now)) {
+      adhanTime = adhanTime.add(const Duration(days: 1));
+    }
+
+    final adhanTitle = '🕌 $namazName — নামাজের ওয়াক্ত হয়েছে';
+    final adhanBody =
+        'আল্লাহু আকবার, আল্লাহু আকবার! $namazName নামাজের সময় হয়েছে। জামায়াতে নামাজ আদায় করুন।';
+
+    final adhanDetails = NotificationDetails(
       android: AndroidNotificationDetails(
         AppConstants.namazChannelId,
         AppConstants.namazChannelName,
@@ -199,22 +230,22 @@ class NotificationService {
         playSound: true,
         sound: const RawResourceAndroidNotificationSound('adhan'),
         enableVibration: true,
-        audioAttributesUsage: AudioAttributesUsage.notification,
+        audioAttributesUsage: AudioAttributesUsage.alarm,
         fullScreenIntent: true,
-        category: AndroidNotificationCategory.reminder,
+        category: AndroidNotificationCategory.alarm,
         visibility: NotificationVisibility.public,
         actions: const <AndroidNotificationAction>[
           AndroidNotificationAction(
             'stop_sound',
-            '🔕 আজান বন্ধ করুন',
+            '🛑 আজান বন্ধ করুন',
             showsUserInterface: false,
             cancelNotification: false,
           ),
         ],
         styleInformation: BigTextStyleInformation(
-          body,
-          contentTitle: title,
-          summaryText: 'নামাজের সময় সতর্কতা',
+          adhanBody,
+          contentTitle: adhanTitle,
+          summaryText: 'নামাজের সময় সতর্কতা (আজান)',
         ),
         color: const Color(0xFF1B5E20),
       ),
@@ -226,71 +257,31 @@ class NotificationService {
       ),
     );
 
-    // If prayer is today in the future, but offset time (e.g. 10m before) already passed:
-    // (e.g. user set prayer for 2:00 PM at 1:55 PM, so 1:50 PM was 5m ago)
-    // Alert immediately so they get alerted in 3 seconds instead of waiting for tomorrow!
-    if (prayerTime.isAfter(now) && notifyAt.isBefore(now)) {
-      final remainingMin = prayerTime.difference(now).inMinutes;
-      final quickTitle = '🕌 $namazName — আর মাত্র $remainingMin মিনিট বাকি!';
-      final quickBody = hadithText != null
-          ? '⏰ $namazName এর জামায়াত শুরু হতে $remainingMin মিনিট বাকি।\n\n📖 হাদিস:\n$hadithText'
-          : '⏰ আর $remainingMin মিনিট পর $namazName এর জামায়াত শুরু হবে।';
+    final scheduledAdhanDate = _toTzDateTime(adhanTime);
 
-      try {
-        await _plugin.zonedSchedule(
-          id + 500,
-          quickTitle,
-          quickBody,
-          tz.TZDateTime.from(now.add(const Duration(seconds: 3)), tz.local),
-          details,
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
-        );
-      } catch (_) {
-        await _plugin.show(id + 500, quickTitle, quickBody, details);
-      }
-      notifyAt = notifyAt.add(const Duration(days: 1));
-    } else if (notifyAt.isBefore(now)) {
-      // If today's alarm time has already passed, schedule for tomorrow at the same time
-      notifyAt = notifyAt.add(const Duration(days: 1));
-    }
-
-    tz.TZDateTime scheduledDate;
-    try {
-      scheduledDate = tz.TZDateTime.from(notifyAt, tz.local);
-    } catch (_) {
-      try {
-        scheduledDate =
-            tz.TZDateTime.from(notifyAt, tz.getLocation('Asia/Dhaka'));
-      } catch (_) {
-        scheduledDate = tz.TZDateTime.from(notifyAt, tz.UTC);
-      }
-    }
-
+    // Schedule exact adhan alarm
     try {
       await _plugin.zonedSchedule(
         id,
-        title,
-        body,
-        scheduledDate,
-        details,
-        payload: '$title|$body',
+        adhanTitle,
+        adhanBody,
+        scheduledAdhanDate,
+        adhanDetails,
+        payload: '$adhanTitle|$adhanBody',
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         matchDateTimeComponents: DateTimeComponents.time,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
       );
     } catch (_) {
-      // Fallback to inexact if exact alarm permission is not granted on this device
       try {
         await _plugin.zonedSchedule(
           id,
-          title,
-          body,
-          scheduledDate,
-          details,
-          payload: '$title|$body',
+          adhanTitle,
+          adhanBody,
+          scheduledAdhanDate,
+          adhanDetails,
+          payload: '$adhanTitle|$adhanBody',
           androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
           matchDateTimeComponents: DateTimeComponents.time,
           uiLocalNotificationDateInterpretation:
@@ -298,7 +289,74 @@ class NotificationService {
         );
       } catch (e) {
         // ignore: avoid_print
-        print('zonedSchedule error: $e');
+        print('zonedSchedule adhan error: $e');
+      }
+    }
+
+    // ── 2. PRE-PRAYER REMINDER (IF OFFSET > 0) ───────────────────────
+    if (offsetMinutes > 0) {
+      var reminderTime = adhanTime.subtract(Duration(minutes: offsetMinutes));
+      if (reminderTime.isBefore(now)) {
+        reminderTime = reminderTime.add(const Duration(days: 1));
+      }
+
+      final reminderTitle = '🕌 $namazName — আর $offsetMinutes মিনিট বাকি';
+      final reminderBody = hadithText != null
+          ? '⏰ আর $offsetMinutes মিনিট পর $namazName এর জামায়াত শুরু হবে। ওযু ও সালাতের প্রস্তুতি নিন।\n\n📖 হাদিস:\n$hadithText'
+          : '⏰ আর $offsetMinutes মিনিট পর $namazName নামাজের জামায়াত শুরু হবে।';
+
+      final reminderDetails = NotificationDetails(
+        android: AndroidNotificationDetails(
+          AppConstants.hadithChannelId,
+          AppConstants.hadithChannelName,
+          channelDescription: 'Pre-prayer reminder notifications',
+          importance: Importance.high,
+          priority: Priority.high,
+          playSound: true,
+          enableVibration: true,
+          styleInformation: BigTextStyleInformation(
+            reminderBody,
+            contentTitle: reminderTitle,
+            summaryText: 'নামাজ প্রস্তুতি সতর্কতা',
+          ),
+          color: const Color(0xFF1B5E20),
+        ),
+        iOS: const DarwinNotificationDetails(
+          presentAlert: true,
+          presentSound: true,
+        ),
+      );
+
+      final scheduledReminderDate = _toTzDateTime(reminderTime);
+
+      try {
+        await _plugin.zonedSchedule(
+          id + 1000,
+          reminderTitle,
+          reminderBody,
+          scheduledReminderDate,
+          reminderDetails,
+          payload: '$reminderTitle|$reminderBody',
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          matchDateTimeComponents: DateTimeComponents.time,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      } catch (_) {
+        try {
+          await _plugin.zonedSchedule(
+            id + 1000,
+            reminderTitle,
+            reminderBody,
+            scheduledReminderDate,
+            reminderDetails,
+            payload: '$reminderTitle|$reminderBody',
+            androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+            matchDateTimeComponents: DateTimeComponents.time,
+            uiLocalNotificationDateInterpretation:
+                UILocalNotificationDateInterpretation.absoluteTime,
+          );
+        } catch (_) {}
       }
     }
   }

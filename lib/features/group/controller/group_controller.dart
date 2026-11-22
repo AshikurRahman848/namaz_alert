@@ -662,6 +662,13 @@ class GroupController extends GetxController {
     }
 
     try {
+      final groupIdx = groups.indexWhere((g) => g.id == groupId);
+      if (groupIdx != -1) {
+        groups[groupIdx] = groups[groupIdx].copyWith(
+          notificationSettings: settings,
+        );
+      }
+
       await _firestore.collection('groups').doc(groupId).update({
         'notificationSettings': settings.toJson(),
       });
@@ -711,6 +718,13 @@ class GroupController extends GetxController {
     }
 
     try {
+      final groupIdx = groups.indexWhere((g) => g.id == groupId);
+      if (groupIdx != -1) {
+        groups[groupIdx] = groups[groupIdx].copyWith(
+          customPrayerTimes: prayerTimes,
+        );
+      }
+
       await _firestore.collection('groups').doc(groupId).set({
         'customPrayerTimes': prayerTimes,
       }, SetOptions(merge: true));
@@ -720,8 +734,8 @@ class GroupController extends GetxController {
 
       Get.snackbar(
         '✅ নামাজের সময় সংরক্ষিত!',
-        'গ্রুপের নামাজের সময়সূচি সফলভাবে আপডেট হয়েছে',
-        duration: const Duration(seconds: 3),
+        'গ্রুপের নামাজের সময়সূচি ও আজানের অ্যালার্ট সফলভাবে আপডেট হয়েছে',
+        duration: const Duration(seconds: 4),
         snackPosition: SnackPosition.BOTTOM,
         margin: const EdgeInsets.all(16),
         borderRadius: 12,
