@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show Color;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
@@ -188,9 +189,12 @@ class NotificationService {
     }
   }
 
-  /// Schedule both:
-  /// 1. Exact Prayer Time Notification (With full Adhan sound alarm) at [prayerTime]
-  /// 2. Pre-Prayer Reminder Notification (With hadith) at [prayerTime - offsetMinutes] (if offsetMinutes > 0)
+  /// Schedule Adhan & Namaz alert notification.
+  /// User workflow requirement:
+  /// - The Azan alarm and notification MUST ring [offsetMinutes] (e.g. 10 minutes) BEFORE the Jam'at time.
+  /// - At the exact Jam'at time, people are downstairs praying in congregation, so nothing rings.
+  /// - If [prayerTime] is upcoming within the [offsetMinutes] window (e.g. user sets/tests a time 2-5 min away),
+  ///   the alert fires immediately so the user hears the Adhan right away!
   static Future<void> scheduleNamazNotification({
     required int id,
     required String namazName,
@@ -200,9 +204,8 @@ class NotificationService {
   }) async {
     final now = DateTime.now();
 
-    // ── 1. EXACT PRAYER TIME (ADHAN ALARM) ──────────────────────────
-    // Target prayer time for today
-    var adhanTime = DateTime(
+    // 1. Prayer time today
+    final prayerToday = DateTime(
       now.year,
       now.month,
       now.day,
@@ -211,14 +214,20 @@ class NotificationService {
       0,
     );
 
-    // If prayer time for today has already passed, schedule for tomorrow
-    if (adhanTime.isBefore(now)) {
-      adhanTime = adhanTime.add(const Duration(days: 1));
-    }
+    // 2. Alert time today (offsetMinutes before Jam'at prayer time)
+    final alertToday = prayerToday.subtract(Duration(minutes: offsetMinutes));
 
-    final adhanTitle = '🕌 $namazName — নামাজের ওয়াক্ত হয়েছে';
-    final adhanBody =
-        'আল্লাহু আকবার, আল্লাহু আকবার! $namazName নামাজের সময় হয়েছে। জামায়াতে নামাজ আদায় করুন।';
+    final alertTitle = offsetMinutes > 0
+        ? '🕌 $namazName — আর $offsetMinutes মিনিট বাকি (আজান)'
+        : '🕌 $namazName — নামাজের ওয়াক্ত হয়েছে';
+
+    final alertBody = offsetMinutes > 0
+        ? (hadithText != null
+            ? 'আল্লাহু আকবার, আল্লাহু আকবার! আর $offsetMinutes মিনিট পর $namazName জামায়াত শুরু হবে। ওযু ও সালাতের জন্য প্রস্তুতি নিন।\n\n📖 হাদিস:\n$hadithText'
+            : 'আল্লাহু আকবার, আল্লাহু আকবার! আর $offsetMinutes মিনিট পর $namazName জামায়াত শুরু হবে। ওযু ও সালাতের প্রস্তুতি নিন।')
+        : (hadithText != null
+            ? 'আল্লাহু আকবার, আল্লাহু আকবার! $namazName নামাজের সময় হয়েছে। জামায়াতে নামাজ আদায় করুন।\n\n📖 হাদিস:\n$hadithText'
+            : 'আল্লাহু আকবার, আল্লাহু আকবার! $namazName নামাজের সময় হয়েছে। জামায়াতে নামাজ আদায় করুন।');
 
     final adhanDetails = NotificationDetails(
       android: AndroidNotificationDetails(
@@ -243,9 +252,11 @@ class NotificationService {
           ),
         ],
         styleInformation: BigTextStyleInformation(
-          adhanBody,
-          contentTitle: adhanTitle,
-          summaryText: 'নামাজের সময় সতর্কতা (আজান)',
+          alertBody,
+          contentTitle: alertTitle,
+          summaryText: offsetMinutes > 0
+              ? 'নামাজ প্রস্তুতি সতর্কতা (আজান)'
+              : 'নামাজের সময় সতর্কতা (আজান)',
         ),
         color: const Color(0xFF1B5E20),
       ),
@@ -257,86 +268,17 @@ class NotificationService {
       ),
     );
 
-    final scheduledAdhanDate = _toTzDateTime(adhanTime);
-
-    // Schedule exact adhan alarm
-    try {
-      await _plugin.zonedSchedule(
-        id,
-        adhanTitle,
-        adhanBody,
-        scheduledAdhanDate,
-        adhanDetails,
-        payload: '$adhanTitle|$adhanBody',
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        matchDateTimeComponents: DateTimeComponents.time,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-      );
-    } catch (_) {
+    // Scenario A: The alert time for today is still in the future!
+    if (alertToday.isAfter(now)) {
+      final scheduledDate = _toTzDateTime(alertToday);
       try {
         await _plugin.zonedSchedule(
           id,
-          adhanTitle,
-          adhanBody,
-          scheduledAdhanDate,
+          alertTitle,
+          alertBody,
+          scheduledDate,
           adhanDetails,
-          payload: '$adhanTitle|$adhanBody',
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-          matchDateTimeComponents: DateTimeComponents.time,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
-        );
-      } catch (e) {
-        // ignore: avoid_print
-        print('zonedSchedule adhan error: $e');
-      }
-    }
-
-    // ── 2. PRE-PRAYER REMINDER (IF OFFSET > 0) ───────────────────────
-    if (offsetMinutes > 0) {
-      var reminderTime = adhanTime.subtract(Duration(minutes: offsetMinutes));
-      if (reminderTime.isBefore(now)) {
-        reminderTime = reminderTime.add(const Duration(days: 1));
-      }
-
-      final reminderTitle = '🕌 $namazName — আর $offsetMinutes মিনিট বাকি';
-      final reminderBody = hadithText != null
-          ? '⏰ আর $offsetMinutes মিনিট পর $namazName এর জামায়াত শুরু হবে। ওযু ও সালাতের প্রস্তুতি নিন।\n\n📖 হাদিস:\n$hadithText'
-          : '⏰ আর $offsetMinutes মিনিট পর $namazName নামাজের জামায়াত শুরু হবে।';
-
-      final reminderDetails = NotificationDetails(
-        android: AndroidNotificationDetails(
-          AppConstants.hadithChannelId,
-          AppConstants.hadithChannelName,
-          channelDescription: 'Pre-prayer reminder notifications',
-          importance: Importance.high,
-          priority: Priority.high,
-          playSound: true,
-          enableVibration: true,
-          styleInformation: BigTextStyleInformation(
-            reminderBody,
-            contentTitle: reminderTitle,
-            summaryText: 'নামাজ প্রস্তুতি সতর্কতা',
-          ),
-          color: const Color(0xFF1B5E20),
-        ),
-        iOS: const DarwinNotificationDetails(
-          presentAlert: true,
-          presentSound: true,
-        ),
-      );
-
-      final scheduledReminderDate = _toTzDateTime(reminderTime);
-
-      try {
-        await _plugin.zonedSchedule(
-          id + 1000,
-          reminderTitle,
-          reminderBody,
-          scheduledReminderDate,
-          reminderDetails,
-          payload: '$reminderTitle|$reminderBody',
+          payload: '$alertTitle|$alertBody',
           androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
           matchDateTimeComponents: DateTimeComponents.time,
           uiLocalNotificationDateInterpretation:
@@ -345,18 +287,107 @@ class NotificationService {
       } catch (_) {
         try {
           await _plugin.zonedSchedule(
-            id + 1000,
-            reminderTitle,
-            reminderBody,
-            scheduledReminderDate,
-            reminderDetails,
-            payload: '$reminderTitle|$reminderBody',
+            id,
+            alertTitle,
+            alertBody,
+            scheduledDate,
+            adhanDetails,
+            payload: '$alertTitle|$alertBody',
             androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
             matchDateTimeComponents: DateTimeComponents.time,
             uiLocalNotificationDateInterpretation:
                 UILocalNotificationDateInterpretation.absoluteTime,
           );
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('zonedSchedule alertToday error: $e');
+        }
+      }
+    }
+    // Scenario B: Prayer time is still in the future today, but alert time has already passed
+    // (e.g. testing or setting prayer time within the offset window, e.g. 2-5 min away)
+    else if (prayerToday.isAfter(now)) {
+      // Fire alert immediately so user gets the Adhan & notification right away during testing!
+      try {
+        await _plugin.show(
+          id,
+          alertTitle,
+          alertBody,
+          adhanDetails,
+          payload: '$alertTitle|$alertBody',
+        );
+      } catch (e) {
+        debugPrint('show immediate error: $e');
+      }
+
+      // And schedule for tomorrow onwards at the regular alert time
+      final tomorrowAlert = alertToday.add(const Duration(days: 1));
+      final scheduledDate = _toTzDateTime(tomorrowAlert);
+      try {
+        await _plugin.zonedSchedule(
+          id,
+          alertTitle,
+          alertBody,
+          scheduledDate,
+          adhanDetails,
+          payload: '$alertTitle|$alertBody',
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          matchDateTimeComponents: DateTimeComponents.time,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      } catch (_) {
+        try {
+          await _plugin.zonedSchedule(
+            id,
+            alertTitle,
+            alertBody,
+            scheduledDate,
+            adhanDetails,
+            payload: '$alertTitle|$alertBody',
+            androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+            matchDateTimeComponents: DateTimeComponents.time,
+            uiLocalNotificationDateInterpretation:
+                UILocalNotificationDateInterpretation.absoluteTime,
+          );
+        } catch (e) {
+          debugPrint('zonedSchedule tomorrow error: $e');
+        }
+      }
+    }
+    // Scenario C: Both prayer time and alert time for today have passed
+    else {
+      final tomorrowAlert = alertToday.add(const Duration(days: 1));
+      final scheduledDate = _toTzDateTime(tomorrowAlert);
+      try {
+        await _plugin.zonedSchedule(
+          id,
+          alertTitle,
+          alertBody,
+          scheduledDate,
+          adhanDetails,
+          payload: '$alertTitle|$alertBody',
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          matchDateTimeComponents: DateTimeComponents.time,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      } catch (_) {
+        try {
+          await _plugin.zonedSchedule(
+            id,
+            alertTitle,
+            alertBody,
+            scheduledDate,
+            adhanDetails,
+            payload: '$alertTitle|$alertBody',
+            androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+            matchDateTimeComponents: DateTimeComponents.time,
+            uiLocalNotificationDateInterpretation:
+                UILocalNotificationDateInterpretation.absoluteTime,
+          );
+        } catch (e) {
+          debugPrint('zonedSchedule tomorrow error: $e');
+        }
       }
     }
   }
