@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:namaz_alert/core/constants/app_constants.dart';
 import 'package:namaz_alert/core/firebase/firestore_instance.dart';
+import 'package:namaz_alert/core/routes/app_routes.dart';
 import 'package:namaz_alert/core/services/fcm_service.dart';
 import 'package:namaz_alert/core/services/hadith_service.dart';
 import 'package:namaz_alert/core/services/notification_service.dart';
@@ -625,6 +626,19 @@ class GroupController extends GetxController {
     String groupId,
     GroupNotificationSettings settings,
   ) async {
+    final fbUser = _authController.firebaseUser;
+    if (fbUser == null) {
+      Get.snackbar(
+        'সেশন মেয়াদোত্তীর্ণ',
+        'লগইন সেশন পাওয়া যায়নি। অনুগ্রহ করে পুনরায় লগইন করুন।',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.redAccent.withValues(alpha: 0.9),
+        colorText: Colors.white,
+      );
+      Get.offAllNamed(AppRoutes.login);
+      return;
+    }
+
     try {
       await _firestore.collection('groups').doc(groupId).update({
         'notificationSettings': settings.toJson(),
@@ -642,7 +656,7 @@ class GroupController extends GetxController {
         borderRadius: 12,
       );
     } catch (e) {
-      Get.snackbar('Error', 'Failed to update settings.');
+      Get.snackbar('Error', 'Failed to update settings: $e');
     }
   }
 
@@ -668,6 +682,19 @@ class GroupController extends GetxController {
     String groupId,
     Map<String, String> prayerTimes,
   ) async {
+    final fbUser = _authController.firebaseUser;
+    if (fbUser == null) {
+      Get.snackbar(
+        'সেশন মেয়াদোত্তীর্ণ',
+        'লগইন সেশন পাওয়া যায়নি। অনুগ্রহ করে পুনরায় লগইন করুন।',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.redAccent.withValues(alpha: 0.9),
+        colorText: Colors.white,
+      );
+      Get.offAllNamed(AppRoutes.login);
+      return;
+    }
+
     try {
       await _firestore.collection('groups').doc(groupId).set({
         'customPrayerTimes': prayerTimes,

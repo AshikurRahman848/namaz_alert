@@ -5,8 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:namaz_alert/core/constants/app_colors.dart';
 import 'package:namaz_alert/core/constants/app_constants.dart';
 import 'package:namaz_alert/core/services/hadith_service.dart';
-import 'package:namaz_alert/core/services/notification_service.dart';
-import 'package:namaz_alert/core/services/adhan_audio_service.dart';
 import 'package:namaz_alert/core/services/prayer_service.dart';
 import 'package:namaz_alert/features/auth/controller/auth_controller.dart';
 import 'package:namaz_alert/features/group/controller/group_controller.dart';
@@ -50,7 +48,6 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
 
   @override
   void dispose() {
-    AdhanAudioService.stopAdhan();
     _hadithTextCtrl.dispose();
     _narratorCtrl.dispose();
     super.dispose();
@@ -590,108 +587,6 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                         ),
                       );
                     }),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.primary,
-                          side: BorderSide(
-                              color: AppColors.primary.withValues(alpha: 0.4)),
-                          padding: const EdgeInsets.symmetric(vertical: 11),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        onPressed: () async {
-                          await NotificationService.scheduleTestNotification(
-                              seconds: 5);
-                          Get.snackbar(
-                            '🔔 টেস্ট নোটিফিকেশন শিডিউল হয়েছে',
-                            'ঠিক ৫ সেকেন্ড পর আপনার ফোনে নোটিফিকেশন ও সাউন্ড বাজবে! (অ্যাপ মিনিমাইজ বা লক করতে পারেন)',
-                            snackPosition: SnackPosition.BOTTOM,
-                            backgroundColor: const Color(0xFF1B5E20),
-                            colorText: Colors.white,
-                            duration: const Duration(seconds: 4),
-                            margin: const EdgeInsets.all(16),
-                            borderRadius: 12,
-                          );
-                        },
-                        icon: const Icon(Icons.notifications_active_outlined,
-                            size: 18),
-                        label: Text(
-                          'নোটিফিকেশন অ্যালার্ট টেস্ট করুন (৫ সেকেন্ড পর)',
-                          style: GoogleFonts.nunito(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ValueListenableBuilder<bool>(
-                      valueListenable: AdhanAudioService.isPlayingNotifier,
-                      builder: (context, isPlaying, _) {
-                        if (isPlaying) {
-                          return SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red.shade700,
-                                foregroundColor: Colors.white,
-                                elevation: 2,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 11),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              onPressed: () async {
-                                await AdhanAudioService.stopAdhan();
-                                await NotificationService.muteNotification(
-                                  id: 8888,
-                                );
-                              },
-                              icon: const Icon(Icons.stop_circle_rounded,
-                                  size: 19),
-                              label: Text(
-                                '🛑 আজান বন্ধ করুন (Stop Sound)',
-                                style: GoogleFonts.nunito(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ),
-                          );
-                        }
-                        return SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.primary,
-                              side: BorderSide(
-                                color: AppColors.primary.withValues(alpha: 0.5),
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 11),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            onPressed: () {
-                              AdhanAudioService.playAdhan();
-                            },
-                            icon: const Icon(Icons.volume_up_rounded, size: 18),
-                            label: Text(
-                              'আজান সাউন্ড শুনুন / চেক করুন (অডিও টেস্ট)',
-                              style: GoogleFonts.nunito(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
                   ],
                 ),
               ),

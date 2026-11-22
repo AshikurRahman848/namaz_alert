@@ -119,43 +119,47 @@ class AuthController extends GetxController {
 
   /// Check initial auth state during app launch with graceful fallback
   Future<bool> checkInitialAuthState() async {
-    // 1. Immediately read local storage
+    // 1. Immediately read local storage for quick cached display
     final cached = _getUserFromStorage();
     if (cached != null) {
       currentUser.value = cached;
     }
 
-    // 2. Check if Firebase already has a user
+    // 2. Check if Firebase already has an in-memory user
     User? fbUser = _auth.currentUser;
 
-    // 3. If null, wait up to 2 seconds for Firebase Auth to finish disk restoration
+    // 3. If null, wait up to 2.5 seconds for Firebase Auth to finish native disk restoration
     if (fbUser == null) {
       try {
         fbUser = await _auth
             .authStateChanges()
-            .first
-            .timeout(const Duration(milliseconds: 2000), onTimeout: () => null);
+            .firstWhere((u) => u != null)
+            .timeout(const Duration(milliseconds: 2500));
       } catch (_) {
-        fbUser = null;
+        fbUser = _auth.currentUser;
       }
     }
 
+    // 4. If Firebase user is authenticated, load their profile and continue
     if (fbUser != null) {
       await _loadUserProfile(fbUser.uid);
       return true;
     }
 
-    // 4. If Firebase returned null but we have cached user (e.g. offline boot)
-    if (currentUser.value != null || cached != null) {
-      return true;
-    }
-
+    // 5. If Firebase Auth genuinely has no user, cannot write to Firestore.
+    // Invalidate stale cache and require fresh login.
+    currentUser.value = null;
+    try {
+      await _storage.remove(AppConstants.keyUser);
+    } catch (_) {}
     return false;
   }
 
   /// Ensure user is loaded, resolving from Firebase Auth if necessary
   Future<UserModel?> ensureUserLoaded() async {
-    if (currentUser.value != null) return currentUser.value;
+    if (currentUser.value != null && _auth.currentUser != null) {
+      return currentUser.value;
+    }
     final fbUser = _auth.currentUser;
     if (fbUser != null) {
       await _loadUserProfile(fbUser.uid);
@@ -163,10 +167,9 @@ class AuthController extends GetxController {
     return currentUser.value;
   }
 
-  bool get isLoggedIn =>
-      _auth.currentUser != null ||
-      currentUser.value != null ||
-      _storage.hasData(AppConstants.keyUser);
+  User? get firebaseUser => _auth.currentUser;
+
+  bool get isLoggedIn => _auth.currentUser != null;
 
   /// Sign In with Google
   Future<void> signInWithGoogle() async {
