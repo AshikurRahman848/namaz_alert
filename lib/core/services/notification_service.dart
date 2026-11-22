@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show Color;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:namaz_alert/core/constants/app_constants.dart';
@@ -64,6 +65,7 @@ class NotificationService {
         AndroidFlutterLocalNotificationsPlugin>();
 
     // Delete older cached channels so Android OS updates sound and importance
+    await androidImpl?.deleteNotificationChannel('namaz_adhan_channel_v7');
     await androidImpl?.deleteNotificationChannel('namaz_adhan_channel_v6');
     await androidImpl?.deleteNotificationChannel('namaz_adhan_channel_v5');
     await androidImpl?.deleteNotificationChannel('namaz_adhan_channel_v4');
@@ -306,17 +308,70 @@ class NotificationService {
     // Scenario B: Prayer time is still in the future today, but alert time has already passed
     // (e.g. testing or setting prayer time within the offset window, e.g. 2-5 min away)
     else if (prayerToday.isAfter(now)) {
-      // Fire alert immediately so user gets the Adhan & notification right away during testing!
-      try {
-        await _plugin.show(
-          id,
-          alertTitle,
-          alertBody,
-          adhanDetails,
-          payload: '$alertTitle|$alertBody',
+      final storage = GetStorage();
+      final todayAlertKey =
+          'immediate_alert_${namazName}_${now.year}_${now.month}_${now.day}';
+      final alreadyAlertedToday = storage.read(todayAlertKey) == true;
+
+      if (!alreadyAlertedToday) {
+        final remainingMins = prayerToday.difference(now).inMinutes;
+        final immediateTitle = remainingMins > 0
+            ? '🕌 $namazName — আর $remainingMins মিনিট বাকি (আজান)'
+            : '🕌 $namazName — জামায়াতের সময় নিকটবর্তী (আজান)';
+        final immediateBody = remainingMins > 0
+            ? 'আল্লাহু আকবার, আল্লাহু আকবার! $namazName জামায়াত শুরু হতে আর $remainingMins মিনিট বাকি। ওযু করে সালাতের জন্য প্রস্তুতি নিন।'
+            : 'আল্লাহু আকবার, আল্লাহু আকবার! $namazName জামায়াত শুরু হতে চলেছে।';
+
+        final immediateDetails = NotificationDetails(
+          android: AndroidNotificationDetails(
+            AppConstants.namazChannelId,
+            AppConstants.namazChannelName,
+            channelDescription: 'Namaz time notification with Adhan alarm sound',
+            importance: Importance.max,
+            priority: Priority.max,
+            playSound: true,
+            sound: const RawResourceAndroidNotificationSound('adhan'),
+            enableVibration: true,
+            audioAttributesUsage: AudioAttributesUsage.alarm,
+            fullScreenIntent: true,
+            category: AndroidNotificationCategory.alarm,
+            visibility: NotificationVisibility.public,
+            actions: const <AndroidNotificationAction>[
+              AndroidNotificationAction(
+                'stop_sound',
+                '🛑 আজান বন্ধ করুন',
+                showsUserInterface: false,
+                cancelNotification: false,
+              ),
+            ],
+            styleInformation: BigTextStyleInformation(
+              immediateBody,
+              contentTitle: immediateTitle,
+              summaryText: 'নামাজ প্রস্তুতি সতর্কতা (আজান)',
+            ),
+            color: const Color(0xFF1B5E20),
+          ),
+          iOS: const DarwinNotificationDetails(
+            categoryIdentifier: 'namaz',
+            presentAlert: true,
+            presentSound: true,
+            presentBadge: true,
+          ),
         );
-      } catch (e) {
-        debugPrint('show immediate error: $e');
+
+        // Fire alert immediately so user gets the Adhan & notification right away during testing!
+        try {
+          await _plugin.show(
+            id,
+            immediateTitle,
+            immediateBody,
+            immediateDetails,
+            payload: '$immediateTitle|$immediateBody',
+          );
+          await storage.write(todayAlertKey, true);
+        } catch (e) {
+          debugPrint('show immediate error: $e');
+        }
       }
 
       // And schedule for tomorrow onwards at the regular alert time

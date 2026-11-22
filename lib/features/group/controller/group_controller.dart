@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:namaz_alert/core/constants/app_constants.dart';
 import 'package:namaz_alert/core/firebase/firestore_instance.dart';
 import 'package:namaz_alert/core/services/fcm_service.dart';
@@ -728,6 +729,14 @@ class GroupController extends GetxController {
       await _firestore.collection('groups').doc(groupId).set({
         'customPrayerTimes': prayerTimes,
       }, SetOptions(merge: true));
+
+      // Clear today's alert locks so if admin is testing within the offset window, the alert immediately rings!
+      final now = DateTime.now();
+      final storage = GetStorage();
+      for (final name in AppConstants.namazNames) {
+        storage.remove(
+            'immediate_alert_${name}_${now.year}_${now.month}_${now.day}');
+      }
 
       // Reschedule notifications with new custom times safely
       await syncPrayerNotifications();
