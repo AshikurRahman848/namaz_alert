@@ -759,7 +759,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                             fontSize: 14, fontWeight: FontWeight.w600),
                         decoration: InputDecoration(
                           hintText:
-                              'হাদিস বা ইসলামিক রিমাইন্ডার এখানে লিখুন (অথবা নিচের বাটন চেপে এপিআই থেকে লোড করুন)...',
+                              'হাদিস বা ইসলামিক রিমাইন্ডার এখানে লিখুন (অথবা নিচের বাটন চেপে অনলাইন থেকে লোড করুন)...',
                           hintStyle: GoogleFonts.nunito(
                               fontSize: 13, color: Colors.grey.shade400),
                           filled: true,
@@ -817,7 +817,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                               label: Text(
                                 _loadingHadithApi
                                     ? 'লোড হচ্ছে...'
-                                    : 'এপিআই থেকে আনুন',
+                                    : 'অনলাইন থেকে আনুন',
                                 style: GoogleFonts.nunito(
                                     fontWeight: FontWeight.w800, fontSize: 12),
                               ),
