@@ -276,10 +276,6 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
               tooltip: '৫ সেকেন্ডে আজান পরীক্ষা',
               onPressed: () async {
                 await NotificationService.scheduleTestNotification(seconds: 5);
-                await Future<void>.delayed(const Duration(seconds: 5));
-                await AdhanAudioService.playAdhan(
-                  volumePercent: sliderVolume,
-                );
                 if (!context.mounted) return;
                 Get.snackbar(
                   'আজান পরীক্ষা',

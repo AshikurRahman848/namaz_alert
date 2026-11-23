@@ -5,6 +5,8 @@ import 'package:get_storage/get_storage.dart';
 import 'package:namaz_alert/core/firebase/firebase_options.dart';
 import 'package:namaz_alert/core/routes/app_pages.dart';
 import 'package:namaz_alert/core/routes/app_routes.dart';
+import 'package:namaz_alert/core/constants/app_constants.dart';
+import 'package:namaz_alert/core/services/adhan_audio_service.dart';
 import 'package:namaz_alert/core/services/fcm_service.dart';
 import 'package:namaz_alert/core/services/notification_service.dart';
 import 'package:namaz_alert/core/theme/app_theme.dart';
@@ -23,6 +25,10 @@ void main() async {
 
   // Initialize local notifications
   await NotificationService.initialize();
+  await AdhanAudioService.setVolume(
+    volumePercent:
+        (GetStorage().read(AppConstants.keyAdhanVolume) as int?) ?? 100,
+  );
 
   // Initialize FCM (push notifications)
   await FcmService.initialize();

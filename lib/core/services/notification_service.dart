@@ -8,10 +8,11 @@ import 'package:namaz_alert/core/constants/app_constants.dart';
 import 'package:namaz_alert/core/services/adhan_audio_service.dart';
 
 @pragma('vm:entry-point')
-void notificationTapBackground(NotificationResponse notificationResponse) {
+Future<void> notificationTapBackground(
+    NotificationResponse notificationResponse) async {
   if (notificationResponse.actionId == 'stop_sound') {
-    AdhanAudioService.stopAdhan();
-    NotificationService.muteNotification(
+    await AdhanAudioService.stopAdhan();
+    await NotificationService.muteNotification(
       id: notificationResponse.id ?? 8888,
       payload: notificationResponse.payload,
     );
@@ -49,8 +50,8 @@ class NotificationService {
 
     // Request Android 13+ Notification & Exact Alarm permissions
     try {
-      final androidImplementation = _plugin
-          .resolvePlatformSpecificImplementation<
+      final androidImplementation =
+          _plugin.resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>();
       await androidImplementation?.requestNotificationsPermission();
       await androidImplementation?.requestExactAlarmsPermission();
@@ -65,6 +66,7 @@ class NotificationService {
         AndroidFlutterLocalNotificationsPlugin>();
 
     // Delete older cached channels so Android OS updates sound and importance
+    await androidImpl?.deleteNotificationChannel('namaz_adhan_channel_v8');
     await androidImpl?.deleteNotificationChannel('namaz_adhan_channel_v7');
     await androidImpl?.deleteNotificationChannel('namaz_adhan_channel_v6');
     await androidImpl?.deleteNotificationChannel('namaz_adhan_channel_v5');
@@ -130,12 +132,13 @@ class NotificationService {
     String? title,
     String? body,
   }) async {
-    // 1. Immediately cancel the active notification to halt the currently playing alert sound in Android
+    // Cancel the active notification first so Android stops the channel alarm sound.
     await _plugin.cancel(id);
     await AdhanAudioService.stopAdhan();
 
     String displayTitle = title ?? '🕌 নামাজের সময় সতর্কতা';
-    String displayBody = body ?? '🔕 আজান মিউট করা হয়েছে। নামাজের সময় নিকটবর্তী।';
+    String displayBody =
+        body ?? '🔕 আজান মিউট করা হয়েছে। নামাজের সময় নিকটবর্তী।';
 
     if (payload != null && payload.contains('|')) {
       final parts = payload.split('|');
@@ -326,7 +329,8 @@ class NotificationService {
           android: AndroidNotificationDetails(
             AppConstants.namazChannelId,
             AppConstants.namazChannelName,
-            channelDescription: 'Namaz time notification with Adhan alarm sound',
+            channelDescription:
+                'Namaz time notification with Adhan alarm sound',
             importance: Importance.max,
             priority: Priority.max,
             playSound: true,
@@ -537,9 +541,8 @@ class NotificationService {
     final title = groupName.isNotEmpty
         ? '📖 হাদিস সতর্কতা ($groupName)'
         : '📖 হাদিস সতর্কতা';
-    final body = narrator.isNotEmpty
-        ? '$hadithText\n\n— $narrator'
-        : hadithText;
+    final body =
+        narrator.isNotEmpty ? '$hadithText\n\n— $narrator' : hadithText;
 
     await _plugin.show(
       id,
@@ -579,5 +582,3 @@ class NotificationService {
     await _plugin.cancel(id);
   }
 }
-
-

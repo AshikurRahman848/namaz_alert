@@ -1,5 +1,10 @@
 # namaz_alert
 
+## Audio attribution
+
+- `adhan.mp3`: "The Adhan - Muslim Call to Prayer" by Atcovi, licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+- Source: https://commons.wikimedia.org/wiki/File:The_Adhan_-_Muslim_Call_to_Prayer_-_Aaqib_Azeez.mp3
+
 A new Flutter project.
 
 ## Getting Started

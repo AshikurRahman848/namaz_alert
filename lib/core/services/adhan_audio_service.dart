@@ -1,10 +1,12 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:namaz_alert/core/constants/app_constants.dart';
 
 class AdhanAudioService {
   static final AudioPlayer _player = AudioPlayer();
+  static const MethodChannel _audioChannel = MethodChannel('namaz_alert/audio');
   static final ValueNotifier<bool> isPlayingNotifier =
       ValueNotifier<bool>(false);
 
@@ -12,6 +14,14 @@ class AdhanAudioService {
     final percent = volumePercent.clamp(0, 100);
     await GetStorage().write(AppConstants.keyAdhanVolume, percent);
     await _player.setVolume(percent / 100);
+    try {
+      await _audioChannel.invokeMethod<void>(
+        'setAdhanVolume',
+        {'percent': percent},
+      );
+    } catch (e) {
+      debugPrint('Android Adhan volume error: $e');
+    }
   }
 
   static Future<void> playAdhan({int? volumePercent}) async {
