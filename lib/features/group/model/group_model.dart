@@ -67,6 +67,7 @@ class GroupNotificationSettings {
   final bool maghribEnabled;
   final bool ishaEnabled;
   final int offsetMinutes; // how many minutes before namaz
+  final int adhanVolumePercent;
   final bool hadithEnabled;
 
   const GroupNotificationSettings({
@@ -76,6 +77,7 @@ class GroupNotificationSettings {
     this.maghribEnabled = true,
     this.ishaEnabled = true,
     this.offsetMinutes = 10,
+    this.adhanVolumePercent = 100,
     this.hadithEnabled = true,
   });
 
@@ -94,6 +96,7 @@ class GroupNotificationSettings {
         'maghribEnabled': maghribEnabled,
         'ishaEnabled': ishaEnabled,
         'offsetMinutes': offsetMinutes,
+        'adhanVolumePercent': adhanVolumePercent,
         'hadithEnabled': hadithEnabled,
       };
 
@@ -105,6 +108,8 @@ class GroupNotificationSettings {
         maghribEnabled: json['maghribEnabled'] ?? true,
         ishaEnabled: json['ishaEnabled'] ?? true,
         offsetMinutes: json['offsetMinutes'] ?? 10,
+        adhanVolumePercent:
+            (json['adhanVolumePercent'] ?? 100).clamp(0, 100).toInt(),
         hadithEnabled: json['hadithEnabled'] ?? true,
       );
 
@@ -115,6 +120,7 @@ class GroupNotificationSettings {
     bool? maghribEnabled,
     bool? ishaEnabled,
     int? offsetMinutes,
+    int? adhanVolumePercent,
     bool? hadithEnabled,
   }) =>
       GroupNotificationSettings(
@@ -124,6 +130,7 @@ class GroupNotificationSettings {
         maghribEnabled: maghribEnabled ?? this.maghribEnabled,
         ishaEnabled: ishaEnabled ?? this.ishaEnabled,
         offsetMinutes: offsetMinutes ?? this.offsetMinutes,
+        adhanVolumePercent: adhanVolumePercent ?? this.adhanVolumePercent,
         hadithEnabled: hadithEnabled ?? this.hadithEnabled,
       );
 }

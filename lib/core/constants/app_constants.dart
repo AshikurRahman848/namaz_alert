@@ -18,6 +18,7 @@ class AppConstants {
   static const keyPrayerTimes = 'prayer_times';
   static const keyLastPrayerFetch = 'last_prayer_fetch';
   static const keyNotificationOffset = 'notification_offset';
+  static const keyAdhanVolume = 'adhan_volume_percent';
   static const keyOnboarded = 'onboarded';
   static const keyFcmToken = 'fcm_token';
 

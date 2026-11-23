@@ -4,7 +4,9 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:namaz_alert/core/constants/app_colors.dart';
 import 'package:namaz_alert/core/constants/app_constants.dart';
+import 'package:namaz_alert/core/services/adhan_audio_service.dart';
 import 'package:namaz_alert/core/services/hadith_service.dart';
+import 'package:namaz_alert/core/services/notification_service.dart';
 import 'package:namaz_alert/core/services/prayer_service.dart';
 import 'package:namaz_alert/features/auth/controller/auth_controller.dart';
 import 'package:namaz_alert/features/group/controller/group_controller.dart';
@@ -28,6 +30,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
       TextEditingController(text: 'সহীহ বুখারী');
 
   bool _sendingHadith = false;
+  int? _adhanVolumePercent;
   bool _loadingHadithApi = false;
   PrayerTimeModel? _cityPrayerTimes;
 
@@ -254,6 +257,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
 
       final isAdmin = group.isAdmin(_authCtrl.currentUser.value?.uid ?? '');
       final settings = group.notificationSettings;
+      final sliderVolume = _adhanVolumePercent ?? settings.adhanVolumePercent;
 
       return Scaffold(
         backgroundColor: const Color(0xFFF0F4F0),
@@ -266,6 +270,25 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
           foregroundColor: Colors.white,
           elevation: 0,
           actions: [
+            IconButton(
+              icon: const Icon(Icons.notifications_active_rounded,
+                  color: Colors.white),
+              tooltip: '৫ সেকেন্ডে আজান পরীক্ষা',
+              onPressed: () async {
+                await NotificationService.scheduleTestNotification(seconds: 5);
+                await Future<void>.delayed(const Duration(seconds: 5));
+                await AdhanAudioService.playAdhan(
+                  volumePercent: sliderVolume,
+                );
+                if (!context.mounted) return;
+                Get.snackbar(
+                  'আজান পরীক্ষা',
+                  '৫ সেকেন্ডের মধ্যে test notification আসা উচিত',
+                  snackPosition: SnackPosition.BOTTOM,
+                  duration: const Duration(seconds: 3),
+                );
+              },
+            ),
             IconButton(
               icon: const Icon(Icons.logout_rounded, color: Colors.white),
               tooltip: 'গ্রুপ ত্যাগ করুন',
@@ -428,6 +451,80 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
 
               const SizedBox(height: 20),
 
+              if (isAdmin)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.volume_up_rounded,
+                              color: AppColors.primary),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'আজানের ভলিউম',
+                              style: GoogleFonts.nunito(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.textDark,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '$sliderVolume%',
+                            style: GoogleFonts.nunito(
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Slider(
+                        value: sliderVolume.toDouble(),
+                        min: 0,
+                        max: 100,
+                        divisions: 10,
+                        label: '$sliderVolume%',
+                        activeColor: AppColors.primary,
+                        onChanged: (value) {
+                          setState(() {
+                            _adhanVolumePercent = value.round();
+                          });
+                          AdhanAudioService.setVolume(
+                            volumePercent: value.round(),
+                          );
+                        },
+                        onChangeEnd: (value) async {
+                          final volume = value.round();
+                          final updated = settings.copyWith(
+                            adhanVolumePercent: volume,
+                          );
+                          await AdhanAudioService.setVolume(
+                            volumePercent: volume,
+                          );
+                          await _groupCtrl.updateNotificationSettings(
+                            group.id,
+                            updated,
+                          );
+                          if (mounted) {
+                            setState(() {
+                              _adhanVolumePercent = null;
+                            });
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+
               // ── 2. Office Prayer Times Section ───────────────────────
               Container(
                 decoration: BoxDecoration(
@@ -486,7 +583,11 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                     const SizedBox(height: 16),
                     ...AppConstants.namazNames.map((prayer) {
                       final info = _namazIcons[prayer] ??
-                          {'icon': Icons.access_time, 'emoji': '🕌', 'bn': prayer};
+                          {
+                            'icon': Icons.access_time,
+                            'emoji': '🕌',
+                            'bn': prayer
+                          };
                       final isCustom =
                           group.customPrayerTimes.containsKey(prayer);
 
@@ -570,8 +671,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                                 icon: const Icon(Icons.edit_calendar_rounded,
                                     color: AppColors.primary, size: 20),
                                 tooltip: 'সময় পরিবর্তন করুন',
-                                onPressed: () => _pickPrayerTime(
-                                    context, prayer, timeRaw),
+                                onPressed: () =>
+                                    _pickPrayerTime(context, prayer, timeRaw),
                               ),
                               if (isCustom)
                                 IconButton(
@@ -703,9 +804,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                           // Button 1: Load from API
                           Expanded(
                             child: OutlinedButton.icon(
-                              onPressed: _loadingHadithApi
-                                  ? null
-                                  : _loadHadithFromApi,
+                              onPressed:
+                                  _loadingHadithApi ? null : _loadHadithFromApi,
                               icon: _loadingHadithApi
                                   ? const SizedBox(
                                       height: 14,
@@ -715,15 +815,18 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                                   : const Icon(Icons.auto_stories_rounded,
                                       size: 16),
                               label: Text(
-                                _loadingHadithApi ? 'লোড হচ্ছে...' : 'এপিআই থেকে আনুন',
+                                _loadingHadithApi
+                                    ? 'লোড হচ্ছে...'
+                                    : 'এপিআই থেকে আনুন',
                                 style: GoogleFonts.nunito(
                                     fontWeight: FontWeight.w800, fontSize: 12),
                               ),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: AppColors.primary,
-                                side: const BorderSide(color: AppColors.primary),
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 12),
+                                side:
+                                    const BorderSide(color: AppColors.primary),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -735,9 +838,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                           // Button 2: Broadcast to group
                           Expanded(
                             child: ElevatedButton.icon(
-                              onPressed: _sendingHadith
-                                  ? null
-                                  : _broadcastHadith,
+                              onPressed:
+                                  _sendingHadith ? null : _broadcastHadith,
                               icon: _sendingHadith
                                   ? const SizedBox(
                                       height: 14,
@@ -747,7 +849,9 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                                   : const Icon(Icons.send_rounded,
                                       color: Colors.white, size: 16),
                               label: Text(
-                                _sendingHadith ? 'পাঠানো হচ্ছে...' : 'মেম্বারদের পাঠান',
+                                _sendingHadith
+                                    ? 'পাঠানো হচ্ছে...'
+                                    : 'মেম্বারদের পাঠান',
                                 style: GoogleFonts.nunito(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w800,
@@ -755,8 +859,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                               ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.primary,
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 12),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -777,7 +881,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.amber.shade300, width: 1.5),
+                    border:
+                        Border.all(color: Colors.amber.shade300, width: 1.5),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.amber.withValues(alpha: 0.1),
@@ -885,7 +990,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                                   ),
                                   icon: const Icon(Icons.check, size: 18),
                                   tooltip: 'অনুমোদন (Approve)',
-                                  onPressed: () => _groupCtrl.approveJoinRequest(
+                                  onPressed: () =>
+                                      _groupCtrl.approveJoinRequest(
                                     groupId: group.id,
                                     request: req,
                                   ),
@@ -1109,8 +1215,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
       BuildContext context, GroupModel group, GroupMember member) {
     Get.dialog(
       AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
             const Icon(Icons.admin_panel_settings_rounded,
@@ -1118,8 +1223,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
             const SizedBox(width: 8),
             Text(
               'গ্রুপ অ্যাডমিন করুন',
-              style: GoogleFonts.nunito(
-                  fontWeight: FontWeight.w900, fontSize: 18),
+              style:
+                  GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 18),
             ),
           ],
         ),
@@ -1165,8 +1270,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
       BuildContext context, GroupModel group, GroupMember member) {
     Get.dialog(
       AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
             const Icon(Icons.remove_moderator_rounded,
@@ -1174,8 +1278,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
             const SizedBox(width: 8),
             Text(
               'অ্যাডমিন পদ বাতিল',
-              style: GoogleFonts.nunito(
-                  fontWeight: FontWeight.w900, fontSize: 18),
+              style:
+                  GoogleFonts.nunito(fontWeight: FontWeight.w900, fontSize: 18),
             ),
           ],
         ),

@@ -7,6 +7,7 @@ import 'package:namaz_alert/core/firebase/firestore_instance.dart';
 import 'package:namaz_alert/core/services/fcm_service.dart';
 import 'package:namaz_alert/core/services/hadith_service.dart';
 import 'package:namaz_alert/core/services/notification_service.dart';
+import 'package:namaz_alert/core/services/adhan_audio_service.dart';
 import 'package:namaz_alert/core/services/prayer_service.dart';
 import 'package:namaz_alert/features/auth/controller/auth_controller.dart';
 import 'package:namaz_alert/features/group/model/group_model.dart';
@@ -675,7 +676,7 @@ class GroupController extends GetxController {
       });
 
       // Reschedule notifications
-      await syncPrayerNotifications();
+      await syncPrayerNotifications(preferredGroupId: groupId);
 
       Get.snackbar(
         '✅ Saved',
@@ -739,7 +740,7 @@ class GroupController extends GetxController {
       }
 
       // Reschedule notifications with new custom times safely
-      await syncPrayerNotifications();
+      await syncPrayerNotifications(preferredGroupId: groupId);
 
       Get.snackbar(
         '✅ নামাজের সময় সংরক্ষিত!',
@@ -767,7 +768,7 @@ class GroupController extends GetxController {
   ///   Cancel any prior notifications, and schedule strictly from the active group's times.
   /// - If user has NOT joined any group (myGroups.isEmpty):
   ///   Cancel any prior notifications, and schedule strictly from the API prayer times.
-  Future<void> syncPrayerNotifications() async {
+  Future<void> syncPrayerNotifications({String? preferredGroupId}) async {
     try {
       // 1. Cancel all previous notifications first to prevent duplicates/ghost alarms
       await NotificationService.cancelAll();
@@ -777,7 +778,19 @@ class GroupController extends GetxController {
       if (activeGroups.isNotEmpty) {
         // ── USER IS IN A GROUP ──
         // Schedule strictly based on the group's prayer settings
-        final group = activeGroups.first;
+        final group = preferredGroupId == null
+            ? activeGroups.first
+            : activeGroups.firstWhere(
+                (item) => item.id == preferredGroupId,
+                orElse: () => activeGroups.first,
+              );
+        await GetStorage().write(
+          AppConstants.keyAdhanVolume,
+          group.notificationSettings.adhanVolumePercent,
+        );
+        await AdhanAudioService.setVolume(
+          volumePercent: group.notificationSettings.adhanVolumePercent,
+        );
         await _scheduleGroupNotifications(group);
         debugPrint('🔔 [Sync] Scheduled strictly for group: "${group.name}"');
       } else {

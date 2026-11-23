@@ -1,12 +1,25 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:namaz_alert/core/constants/app_constants.dart';
 
 class AdhanAudioService {
   static final AudioPlayer _player = AudioPlayer();
-  static final ValueNotifier<bool> isPlayingNotifier = ValueNotifier<bool>(false);
+  static final ValueNotifier<bool> isPlayingNotifier =
+      ValueNotifier<bool>(false);
 
-  static Future<void> playAdhan() async {
+  static Future<void> setVolume({required int volumePercent}) async {
+    final percent = volumePercent.clamp(0, 100);
+    await GetStorage().write(AppConstants.keyAdhanVolume, percent);
+    await _player.setVolume(percent / 100);
+  }
+
+  static Future<void> playAdhan({int? volumePercent}) async {
     try {
+      final storedVolume =
+          GetStorage().read(AppConstants.keyAdhanVolume) as int?;
+      final percent = (volumePercent ?? storedVolume ?? 100).clamp(0, 100);
+
       await _player.stop();
       await _player.setAudioContext(
         AudioContext(
@@ -22,7 +35,7 @@ class AdhanAudioService {
           ),
         ),
       );
-      await _player.setVolume(1.0);
+      await _player.setVolume(percent / 100);
       await _player.play(AssetSource('audio/adhan.mp3'));
       isPlayingNotifier.value = true;
 
