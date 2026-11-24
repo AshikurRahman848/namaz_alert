@@ -198,14 +198,16 @@ class NotificationService {
   /// User workflow requirement:
   /// - The Azan alarm and notification MUST ring [offsetMinutes] (e.g. 10 minutes) BEFORE the Jam'at time.
   /// - At the exact Jam'at time, people are downstairs praying in congregation, so nothing rings.
-  /// - If [prayerTime] is upcoming within the [offsetMinutes] window (e.g. user sets/tests a time 2-5 min away),
-  ///   the alert fires immediately so the user hears the Adhan right away!
+  /// - If [prayerTime] is upcoming within the [offsetMinutes] window,
+  ///   an immediate alert is allowed only for an explicit custom-time test/update.
+  ///   Normal app startup and notification resyncs must keep this disabled.
   static Future<void> scheduleNamazNotification({
     required int id,
     required String namazName,
     required DateTime prayerTime,
     required int offsetMinutes,
     String? hadithText,
+    bool allowImmediateAlert = false,
   }) async {
     final now = DateTime.now();
 
@@ -316,7 +318,7 @@ class NotificationService {
           'immediate_alert_${namazName}_${now.year}_${now.month}_${now.day}';
       final alreadyAlertedToday = storage.read(todayAlertKey) == true;
 
-      if (!alreadyAlertedToday) {
+      if (allowImmediateAlert && !alreadyAlertedToday) {
         final remainingMins = prayerToday.difference(now).inMinutes;
         final immediateTitle = remainingMins > 0
             ? '🕌 $namazName — আর $remainingMins মিনিট বাকি (আজান)'

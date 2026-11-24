@@ -731,7 +731,7 @@ class GroupController extends GetxController {
         'customPrayerTimes': prayerTimes,
       }, SetOptions(merge: true));
 
-      // Clear today's alert locks so if admin is testing within the offset window, the alert immediately rings!
+      // Clear today's alert locks so if admin is testing within the offset window, the alert immediately rings.
       final now = DateTime.now();
       final storage = GetStorage();
       for (final name in AppConstants.namazNames) {
@@ -740,7 +740,10 @@ class GroupController extends GetxController {
       }
 
       // Reschedule notifications with new custom times safely
-      await syncPrayerNotifications(preferredGroupId: groupId);
+      await syncPrayerNotifications(
+        preferredGroupId: groupId,
+        allowImmediateAlert: true,
+      );
 
       Get.snackbar(
         '✅ নামাজের সময় সংরক্ষিত!',
@@ -768,7 +771,10 @@ class GroupController extends GetxController {
   ///   Cancel any prior notifications, and schedule strictly from the active group's times.
   /// - If user has NOT joined any group (myGroups.isEmpty):
   ///   Cancel any prior notifications, and schedule strictly from the API prayer times.
-  Future<void> syncPrayerNotifications({String? preferredGroupId}) async {
+  Future<void> syncPrayerNotifications({
+    String? preferredGroupId,
+    bool allowImmediateAlert = false,
+  }) async {
     try {
       // 1. Cancel all previous notifications first to prevent duplicates/ghost alarms
       await NotificationService.cancelAll();
@@ -791,7 +797,10 @@ class GroupController extends GetxController {
         await AdhanAudioService.setVolume(
           volumePercent: group.notificationSettings.adhanVolumePercent,
         );
-        await _scheduleGroupNotifications(group);
+        await _scheduleGroupNotifications(
+          group,
+          allowImmediateAlert: allowImmediateAlert,
+        );
         debugPrint('🔔 [Sync] Scheduled strictly for group: "${group.name}"');
       } else {
         // ── USER HAS NO GROUP ──
@@ -805,7 +814,10 @@ class GroupController extends GetxController {
           country: AppConstants.defaultCountry,
         );
         if (prayers != null) {
-          await _scheduleApiPrayerNotifications(prayers);
+          await _scheduleApiPrayerNotifications(
+            prayers,
+            allowImmediateAlert: allowImmediateAlert,
+          );
           debugPrint(
               '🔔 [Sync] User has no group. Scheduled strictly from API prayer times.');
         }
@@ -816,7 +828,10 @@ class GroupController extends GetxController {
   }
 
   /// Schedule notifications strictly from API prayer times (when user has no group)
-  Future<void> _scheduleApiPrayerNotifications(PrayerTimeModel prayers) async {
+  Future<void> _scheduleApiPrayerNotifications(
+    PrayerTimeModel prayers, {
+    bool allowImmediateAlert = false,
+  }) async {
     final now = DateTime.now();
     int notifId = 100;
 
@@ -861,12 +876,16 @@ class GroupController extends GetxController {
         prayerTime: prayerDateTime,
         offsetMinutes: AppConstants.defaultOffsetMinutes,
         hadithText: hadithForNotification,
+        allowImmediateAlert: allowImmediateAlert,
       );
     }
   }
 
   /// Schedule local notifications based on group prayer settings (supports custom times)
-  Future<void> _scheduleGroupNotifications(GroupModel group) async {
+  Future<void> _scheduleGroupNotifications(
+    GroupModel group, {
+    bool allowImmediateAlert = false,
+  }) async {
     PrayerTimeModel? prayerTimes;
     try {
       prayerTimes = await PrayerService.fetchByCity(
@@ -927,6 +946,7 @@ class GroupController extends GetxController {
             prayerTime: prayerDateTime,
             offsetMinutes: settings.offsetMinutes,
             hadithText: hadithForNotification,
+            allowImmediateAlert: allowImmediateAlert,
           );
         }
       }
